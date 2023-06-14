@@ -1,0 +1,13 @@
+#Ignore preprocessed data
+preprocessed_data/*
+
+#Ignore project data
+spine_generic
+rootlet_project
+registered_spine_generic
+
+#Ignore runs data
+runs/*
+
+#Ignore wandb data
+wandb/*
