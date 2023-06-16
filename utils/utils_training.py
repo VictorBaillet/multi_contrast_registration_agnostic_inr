@@ -4,7 +4,7 @@ import time
 import torch.nn as nn
 from utils.utils import input_mapping, get_string, fast_trilinear_interpolation, compute_jacobian_loss, compute_hyper_elastic_loss, compute_bending_energy
 from utils.utils import input_mapping, compute_metrics, dict2obj, get_string, compute_mi_hist, compute_mi
-from utils.visualization_utils import show_slices_gt
+from utils.utils_visualization import show_slices_gt
 
 
 def config_data(data, labels, device, config, input_mapper):
@@ -34,7 +34,7 @@ def config_data(data, labels, device, config, input_mapper):
     return raw_data, data, contrast1_labels, contrast2_labels
     
 
-def mcra_training_iteration(model, data, labels, wandb_batch_dict, epoch, model_name, config, args, device, input_mapper, 
+def forward_iteration(model, raw_data, labels, wandb_batch_dict, epoch, model_name, config, args, device, input_mapper, 
                             fixed_image, lpips_loss, criterion, mi_criterion, cc_criterion, min_coords, max_coords, rev_affine):
     raw_data, data, contrast1_labels, contrast2_labels = config_data(raw_data, labels, device, config, input_mapper)    
     target = model(data)
@@ -46,7 +46,8 @@ def mcra_training_iteration(model, data, labels, wandb_batch_dict, epoch, model_
     # target = torch.where(intensity_index, target[:, 1], target[:, 0])
     mse_target1 = target[:len(contrast1_labels),0]  # contrast1 output for contrast1 coordinate
     mse_target2 = target[len(contrast1_labels):,1]  # contrast2 output for contrast2 coordinate
-    registration_target = target[len(contrast1_labels):,2:5].to(device=device)
+    #registration_target = target[len(contrast1_labels):,2:5].to(device=device)
+    registration_target = target[:,2:5].to(device=device)
     # target_mse = torch.cat((mi_target1, mi_target2), dim=0)
     
     if config.MI_CC.MI_USE_PRED:
@@ -57,7 +58,9 @@ def mcra_training_iteration(model, data, labels, wandb_batch_dict, epoch, model_
         mi_target1 = target[:len(contrast1_labels),0][contrast1_segm.squeeze()]  # contrast2 output for contrast1 coordinate !! ETRANGE !!
         mi_target2 = target[len(contrast1_labels):,1][contrast2_segm.squeeze()]   # contrast1 output for contrast2 coordinate
         
-    coord_temp = torch.add(registration_target, raw_data[len(contrast1_labels):].to(device=device))
+    #coord_temp = torch.add(registration_target, raw_data[len(contrast1_labels):].to(device=device))
+    coord_temp = torch.add(registration_target, raw_data.to(device=device))
+    
     #print(registration_target)
     #coord_temp = raw_data[len(contrast1_labels):].to(device=device)
     
@@ -71,14 +74,16 @@ def mcra_training_iteration(model, data, labels, wandb_batch_dict, epoch, model_
         device,
         rev_affine
     )
-    
+    mi_target2 = contrast2_interpolated.unsqueeze(1)
     #config.TRAINING.LOSS_MSE_C1
     
     #print(mse_target2.shape, contrast2_labels.shape)
     if epoch < 50:
-        loss = 10*(criterion(mse_target1, contrast1_labels.squeeze()) + config.TRAINING.LOSS_MSE_C2*criterion(target[len(contrast1_labels):,1], contrast2_interpolated.squeeze()))
+        loss = 10*(criterion(mse_target1, contrast1_labels.squeeze()))
+        #+ 0*config.TRAINING.LOSS_MSE_C2*criterion(target[len(contrast1_labels):,1], contrast2_interpolated.squeeze()))
     else:
-        loss = 10*(criterion(mse_target1, contrast1_labels.squeeze()) + config.TRAINING.LOSS_MSE_C2*criterion(target[len(contrast1_labels):,1], contrast2_interpolated.squeeze()))
+        loss = 10*(criterion(mse_target1, contrast1_labels.squeeze()))
+        #+ 0*config.TRAINING.LOSS_MSE_C2*criterion(target[len(contrast1_labels):,1], contrast2_interpolated.squeeze()))
 
     wandb_batch_dict.update({'mse_loss': loss.item()})
     
@@ -101,7 +106,7 @@ def mcra_training_iteration(model, data, labels, wandb_batch_dict, epoch, model_
     if config.TRAINING.USE_MI or config.TRAINING.USE_NMI:
         if config.MI_CC.MI_USE_PRED:
             mi_loss = mi_criterion(mi_target1.unsqueeze(0).unsqueeze(0).detach(), mi_target2.unsqueeze(0).unsqueeze(0))
-            if epoch > 50:
+            if epoch > -1:
                 loss -= 0.01*config.MI_CC.LOSS_MI*(mi_loss)
             if args.logging:
                 wandb_batch_dict.update({'mi_loss': (mi_loss).item()})
@@ -120,7 +125,7 @@ def mcra_training_iteration(model, data, labels, wandb_batch_dict, epoch, model_
         if args.logging:
             wandb_batch_dict.update({'cc_loss': -(cc_loss1+cc_loss2).item()})
         '''
-        cc_loss = (0.014 + epoch*0.001)*cc_criterion(mi_target1.unsqueeze(0).unsqueeze(0), mi_target2.unsqueeze(0).unsqueeze(0))
+        cc_loss = 0.014*cc_criterion(mi_target1.unsqueeze(0).unsqueeze(0), mi_target2.unsqueeze(0).unsqueeze(0))
         loss += cc_loss
         if args.logging:
             wandb_batch_dict.update({'cc_loss': -(cc_loss).item()})

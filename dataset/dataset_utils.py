@@ -151,10 +151,6 @@ def crop_images(image1: nibabel.Nifti1Image, image2: nibabel.Nifti1Image,
     img1_crop, img2_crop, img1_lr_crop, img2_lr_crop = get_crop_indexes(image1, image2, image1_lr, image2_lr)
     
     def slice_image(image, crop):
-        print(image.shape)
-        print([[crop[0,0],crop[1,0]],
-               [crop[0,1],crop[1,1]],
-               [crop[0,2],crop[1,2]]])
         cropped_image = image.slicer[crop[0,0]:crop[1,0],
                                      crop[0,1]:crop[1,1],
                                      crop[0,2]:crop[1,2]]

@@ -10,4 +10,10 @@ registered_spine_generic
 runs/*
 
 #Ignore wandb data
-wandb/*
+wandb/
+
+#Ignore python cache
+**/__pycache__/
+
+#Ignore notebook chackpoints
+**/*.ipynb_checkpoints/

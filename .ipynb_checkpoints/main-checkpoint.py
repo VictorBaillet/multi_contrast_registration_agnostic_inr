@@ -12,9 +12,9 @@ import torch.nn as nn
 import wandb
 
 from dataset.dataset import MultiModalDataset, InferDataset
-from utils.visualization_utils import show_slices_gt
-from utils.utils import input_mapping, compute_metrics, dict2obj, get_string, compute_mi_hist, compute_mi, generate_NIFTIs
-from utils.utils_training import mcra_training_iteration, compute_and_log_metrics
+from utils.utils_visualization import show_slices_gt
+from utils.utils import input_mapping, compute_metrics, dict2obj, get_string, compute_mi_hist, compute_mi, generate_NIFTIs, fast_trilinear_interpolation
+from utils.utils_training import forward_iteration, compute_and_log_metrics
 from utils.utils_config import create_datasets, create_model, create_losses, process_config, parse_args 
 from utils.loss_functions import MILossGaussian, NMI, NCC
 
@@ -38,30 +38,32 @@ def main(args):
     
     config, config_dict = process_config(config, config_dict, args)
 
-    # logging run
+    # Logging run
     if args.logging:
         wandb.login()
         wandb.init(config=config_dict, project=config.SETTINGS.PROJECT_NAME)
 
-    # make directory for models
+    # Make directory for models
     weight_dir = f'runs/{config.SETTINGS.PROJECT_NAME}_weights'
     image_dir = f'runs/{config.SETTINGS.PROJECT_NAME}_images'
 
     pathlib.Path(weight_dir).mkdir(parents=True, exist_ok=True)
     pathlib.Path(image_dir).mkdir(parents=True, exist_ok=True)
 
-    # seeding
+    # Seeding
     torch.manual_seed(config.TRAINING.SEED)
     np.random.seed(config.TRAINING.SEED)
     
+    # Training device
     device = f'cuda:{config.SETTINGS.GPU_DEVICE}' if torch.cuda.is_available() else 'cpu'
     device = torch.device(device)
-    print(device)
-
+    
+    # Model configuration
     model, model_name, input_mapper = create_model(config, config_dict, device)
 
     print(f'Number of MLP parameters {sum(p.numel() for p in model.parameters())}')
 
+    # Losses configuration
     lpips_loss, criterion, mi_criterion, cc_criterion, model_name = create_losses(config, config_dict, model_name, device)  
     mi_buffer = np.zeros((4,1))
     mi_mean = -1.0
@@ -78,11 +80,15 @@ def main(args):
     # Load Data
     dataset, train_dataloader, infer_dataloader, threshold = create_datasets(config)
     
+    # Dimensions of the two images
     x_dim_c1, y_dim_c1, z_dim_c1 = dataset.get_contrast1_dim()
     x_dim_c2, y_dim_c2, z_dim_c2 = dataset.get_contrast2_dim()
     x_dim_c2_lr, y_dim_c2_lr, z_dim_c2_lr = dataset.get_contrast2_lr_dim()
+    
+    # Image to be registered
     fixed_image = dataset.get_contrast2_intensities().reshape((x_dim_c2_lr, y_dim_c2_lr, z_dim_c2_lr))
-
+    
+    # Maximum and minimum coordinates of the training points (used in fast_trilinear_interpolation)
     coord_c2 = dataset.get_contrast2_data().cpu().numpy()
     affine = dataset.get_contrast2_affine().cpu().numpy()[:3,:3]
     rev_affine = np.linalg.inv(affine)
@@ -90,7 +96,6 @@ def main(args):
     res = res.T
     max_coords = [np.max(res[:,i]) for i in range(3)]
     min_coords = [-np.max(-res[:,i]) for i in range(3)]
-    
     rev_affine = torch.tensor(rev_affine, device=device)
     
     training_args = {'config':config,
@@ -107,27 +112,24 @@ def main(args):
                      'rev_affine':rev_affine}
     
     for epoch in range(config.TRAINING.EPOCHS):
-        # set model to train
+        # Set model to train
         model.train()
         wandb_epoch_dict = {}
 
         model_name_epoch = f'{model_name}_e{int(epoch)}_model.pt'  
         model_path = os.path.join(weight_dir, model_name_epoch)
 
-        print(model_path)
-
         loss_epoch = 0.0
         start = time.time()
-              
         for batch_idx, (data, labels) in enumerate(train_dataloader): #(data, labels, segm) in enumerate(train_dataloader):
             loss_batch = 0
             wandb_batch_dict = {}
             data = data.requires_grad_(True)
             
-            loss, wandb_batch_dict = mcra_training_iteration(model, data, labels, wandb_batch_dict, epoch, model_name, **training_args)
+            # Forward pass
+            loss, wandb_batch_dict = forward_iteration(model, data, labels, wandb_batch_dict, epoch, model_name, **training_args)
                     
             # zero gradients
-            
             optimizer.zero_grad()
             # backprop
             loss.to(torch.float)
@@ -137,7 +139,6 @@ def main(args):
             # epoch loss
             loss_batch += loss.item()
             loss_epoch += loss_batch
-            
             if args.logging:
                 wandb_batch_dict.update({'batch_loss': loss_batch})
                 wandb.log(wandb_batch_dict)  # update logs per batch
@@ -167,7 +168,7 @@ def main(args):
         out = np.zeros((int(x_dim_c1*y_dim_c1*z_dim_c1 + x_dim_c2*y_dim_c2*z_dim_c2), 5))
         model_inference.to(device)
         for batch_idx, (data) in enumerate(infer_dataloader):
-
+            raw_data = data
             if torch.cuda.is_available():
                 data = data.to(device)
                 
@@ -179,7 +180,21 @@ def main(args):
                 data = data
                 
             output = model_inference(data)
-
+            
+            registration_target = output[:,2:]
+            coord_temp = torch.add(registration_target, raw_data.to(device=device))
+            contrast2_interpolated = fast_trilinear_interpolation(
+                fixed_image,
+                coord_temp[:, 0],
+                coord_temp[:, 1],
+                coord_temp[:, 2],
+                min_coords,
+                max_coords,
+                device,
+                rev_affine
+            )
+            output[:, 1] = contrast2_interpolated
+            
             if config.MODEL.USE_SIREN or config.MODEL.USE_WIRE_REAL:
                 output, _ = output
 
