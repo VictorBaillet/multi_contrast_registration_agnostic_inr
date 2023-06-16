@@ -46,8 +46,8 @@ def forward_iteration(model, raw_data, labels, wandb_batch_dict, epoch, model_na
     # target = torch.where(intensity_index, target[:, 1], target[:, 0])
     mse_target1 = target[:len(contrast1_labels),0]  # contrast1 output for contrast1 coordinate
     mse_target2 = target[len(contrast1_labels):,1]  # contrast2 output for contrast2 coordinate
-    #registration_target = target[len(contrast1_labels):,2:5].to(device=device)
-    registration_target = target[:,2:5].to(device=device)
+    registration_target = target[len(contrast1_labels):,2:5].to(device=device)
+    #registration_target = target[:,2:5].to(device=device)
     # target_mse = torch.cat((mi_target1, mi_target2), dim=0)
     
     if config.MI_CC.MI_USE_PRED:
@@ -58,8 +58,8 @@ def forward_iteration(model, raw_data, labels, wandb_batch_dict, epoch, model_na
         mi_target1 = target[:len(contrast1_labels),0][contrast1_segm.squeeze()]  # contrast2 output for contrast1 coordinate !! ETRANGE !!
         mi_target2 = target[len(contrast1_labels):,1][contrast2_segm.squeeze()]   # contrast1 output for contrast2 coordinate
         
-    #coord_temp = torch.add(registration_target, raw_data[len(contrast1_labels):].to(device=device))
-    coord_temp = torch.add(registration_target, raw_data.to(device=device))
+    coord_temp = torch.add(registration_target, raw_data[len(contrast1_labels):].to(device=device))
+    #coord_temp = torch.add(registration_target, raw_data.to(device=device))
     
     #print(registration_target)
     #coord_temp = raw_data[len(contrast1_labels):].to(device=device)
@@ -74,10 +74,8 @@ def forward_iteration(model, raw_data, labels, wandb_batch_dict, epoch, model_na
         device,
         rev_affine
     )
-    mi_target2 = contrast2_interpolated.unsqueeze(1)
-    #config.TRAINING.LOSS_MSE_C1
+    #mi_target2 = contrast2_interpolated.unsqueeze(1)
     
-    #print(mse_target2.shape, contrast2_labels.shape)
     if epoch < 50:
         loss = 10*(criterion(mse_target1, contrast1_labels.squeeze()))
         #+ 0*config.TRAINING.LOSS_MSE_C2*criterion(target[len(contrast1_labels):,1], contrast2_interpolated.squeeze()))

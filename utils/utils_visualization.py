@@ -41,7 +41,7 @@ def show_slices_registration(slices, epoch):
         coord = np.array(coords[i])
         coord = coord.reshape(-1, coord.shape[-1])
         
-        axes[i].quiver(coord[::10,0], coord[::10,1], slice[::10, 0], slice[::10, 1])
+        axes[i].quiver(coord[::10,0], coord[::10,1], 10*slice[::10, 0], 10*slice[::10, 1])
         
     plt.suptitle(f"Registration fiels after {epoch}.")
     plt.tight_layout()

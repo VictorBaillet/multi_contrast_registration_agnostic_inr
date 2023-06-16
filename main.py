@@ -180,7 +180,7 @@ def main(args):
                 data = data
                 
             output = model_inference(data)
-            
+            """"
             registration_target = output[:,2:]
             coord_temp = torch.add(registration_target, raw_data.to(device=device))
             contrast2_interpolated = fast_trilinear_interpolation(
@@ -194,7 +194,7 @@ def main(args):
                 rev_affine
             )
             output[:, 1] = contrast2_interpolated
-            
+            """
             if config.MODEL.USE_SIREN or config.MODEL.USE_WIRE_REAL:
                 output, _ = output
 
