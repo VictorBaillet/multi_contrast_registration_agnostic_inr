@@ -64,7 +64,7 @@ class MultiModalDataset(_BaseDataset):
         
 
         self.dataset_name = (
-            f'preprocessed_data/{self.dataset_name}_'
+            f'{self.dataset_name}_'
             f'{self.subject_id}_'
             f'{self.contrast1_LR_str}_{self.contrast1_GT_str}_'
             f'{self.contrast2_LR_str}_{self.contrast2_GT_str}_'
@@ -108,9 +108,12 @@ class MultiModalDataset(_BaseDataset):
         #gt_contrast2_dict = get_image_coordinate_grid_nib(nib.load(str(self.gt_contrast2)))
         #self.gt_constrast2_img_data = gt_contrast2_dict["image_data"]
         
-        if os.path.isfile(self.dataset_name):
+        dataset_path = os.path.join(os.path.join(os.getcwd(), "projects/preprocessed_data"), self.dataset_name)
+        print(dataset_path)
+        
+        if os.path.isfile(dataset_path):
             print("Dataset available.")
-            dataset = torch.load(self.dataset_name)
+            dataset = torch.load(dataset_path)
             self.data = dataset["data"]
             self.data_contrast1 = dataset["data_contrast1"]
             self.data_contrast2 = dataset["data_contrast2"]
@@ -339,8 +342,8 @@ class MultiModalDataset(_BaseDataset):
             'coordinates_contrast1': self.coordinates_contrast1,
             'coordinates_contrast2': self.coordinates_contrast2,
         }
-        if not os.path.exists(os.path.join(os.getcwd(), os.path.split(self.dataset_name)[0])):
-            os.makedirs(os.path.join(os.getcwd(), os.path.split(self.dataset_name)[0]))
+        if not os.path.exists(os.path.join(os.path.join(os.getcwd(), "project/preprocessed_data"), self.dataset_name[0])):
+            os.makedirs(os.path.join(os.path.join(os.getcwd(), "project/preprocessed_data"), self.dataset_name[0]))
         torch.save(dataset, self.dataset_name)
 
 class InferDataset(Dataset):

@@ -2,7 +2,7 @@ from dataset.dataset import MultiModalDataset, InferDataset
 import argparse
 from model import MLPv1, MLPv2, Siren, WireReal, MLPregv1, MLPregv2
 import lpips
-from utils.loss_functions import MILossGaussian, NMI, NCC
+from loss_functions import MILossGaussian, NMI, NCC
 from utils.utils import input_mapping, get_string
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -28,33 +28,6 @@ def process_config(config, config_dict, args):
     if args.subject_id != None:
         config.DATASET.SUBJECT_ID = args.subject_id
         config_dict["DATASET"]["SUBJECT_ID"] = args.subject_id
-    
-    # experiment type
-    if args.experiment_no == 1:
-        # t1 / FLAIR
-        config.DATASET.LR_CONTRAST1= 't1_LR' 
-        config.DATASET.LR_CONTRAST2= 'flair_LR'
-        config_dict["DATASET"]["LR_CONTRAST1"] = config.DATASET.LR_CONTRAST1
-        config_dict["DATASET"]["LR_CONTRAST2"] = config.DATASET.LR_CONTRAST2
-
-    elif args.experiment_no == 2:
-        # DIR / FLAIR
-        config.DATASET.LR_CONTRAST1= 'dir_LR' 
-        config.DATASET.LR_CONTRAST2= 'flair_LR'
-        config_dict["DATASET"]["LR_CONTRAST1"] = config.DATASET.LR_CONTRAST1
-        config_dict["DATASET"]["LR_CONTRAST2"] = config.DATASET.LR_CONTRAST2
-
-    elif args.experiment_no == 3:
-        # T1w / T2w
-        config.DATASET.LR_CONTRAST1= 't1_LR' 
-        config.DATASET.LR_CONTRAST2= 't2_LR'
-        config_dict["DATASET"]["LR_CONTRAST1"] = config.DATASET.LR_CONTRAST1
-        config_dict["DATASET"]["LR_CONTRAST2"] = config.DATASET.LR_CONTRAST2
-    
-    else:
-        # use the settings in config.yaml instead
-        if args.experiment_no != None:
-            raise ValueError("Experiment not defined.")
     
     return config, config_dict
 

@@ -9,52 +9,13 @@ from torch.nn.modules.loss import _Loss
 import pdb
 
 
-class StableStd(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, tensor):
-        assert tensor.numel() > 1
-        ctx.tensor = tensor.detach()
-        res = torch.std(tensor).detach()
-        ctx.result = res.detach()
-        return res
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        tensor = ctx.tensor.detach()
-        result = ctx.result.detach()
-        e = 1e-6
-        assert tensor.numel() > 1
-        return (
-            (2.0 / (tensor.numel() - 1.0))
-            * (grad_output.detach() / (result.detach() * 2 + e))
-            * (tensor.detach() - tensor.mean().detach())
-        )
-
-
-stablestd = StableStd.apply
+from utils.utils_loss import nmi_gauss, nmi_gauss_mask, StableStd, finite_diff, param_ndim_setup, ncc_mask, ncc, gradient, compute_jacobian_matrix
 
 class _WeightedLoss(_Loss):
     def __init__(self, weight: Optional[Tensor] = None, size_average=None, reduce=None, reduction: str = 'mean') -> None:
         super(_WeightedLoss, self).__init__(size_average, reduce, reduction)
         self.register_buffer('weight', weight)
         self.weight: Optional[Tensor]
-# TODO: add masks.
-def ncc(x1, x2, e=1e-10):
-    assert x1.shape == x2.shape, "Inputs are not of equal shape"
-    cc = ((x1 - x1.mean()) * (x2 - x2.mean())).mean()
-    std = stablestd(x1) * stablestd(x2)
-    ncc = cc / (std + e)
-    return ncc
-
-
-def ncc_mask(x1, x2, mask, e=1e-10):  # TODO: calculate ncc per sample
-    assert x1.shape == x2.shape, "Inputs are not of equal shape"
-    x1 = torch.masked_select(x1, mask)
-    x2 = torch.masked_select(x2, mask)
-    cc = ((x1 - x1.mean()) * (x2 - x2.mean())).mean()
-    std = stablestd(x1) * stablestd(x2)
-    ncc = cc / (std + e)
-    return ncc
 
 
 class NCC(_Loss):
@@ -152,62 +113,6 @@ class NMI(_Loss):
             fixed, warped, bins_fixed, bins_warped, mask, sigma=self.sigma
         )
 
-
-def nmi_gauss(x1, x2, x1_bins, x2_bins, sigma=1e-3, e=1e-10):
-    assert x1.shape == x2.shape, "Inputs are not of similar shape"
-
-    def gaussian_window(x, bins, sigma):
-        assert x.ndim == 2, "Input tensor should be 2-dimensional."
-        return torch.exp(
-            -((x[:, None, :] - bins[None, :, None]) ** 2) / (2 * sigma ** 2)
-        ) / (math.sqrt(2 * math.pi) * sigma)
-
-    x1_windowed = gaussian_window(x1.flatten(1), x1_bins, sigma)
-    x2_windowed = gaussian_window(x2.flatten(1), x2_bins, sigma)
-    p_XY = torch.bmm(x1_windowed, x2_windowed.transpose(1, 2))
-    p_XY = p_XY + e  # deal with numerical instability
-
-    p_XY = p_XY / p_XY.sum((1, 2))[:, None, None]
-
-    p_X = p_XY.sum(1)
-    p_Y = p_XY.sum(2)
-
-    I = (p_XY * torch.log(p_XY / (p_X[:, None] * p_Y[:, :, None]))).sum((1, 2))
-
-    marg_ent_0 = (p_X * torch.log(p_X)).sum(1)
-    marg_ent_1 = (p_Y * torch.log(p_Y)).sum(1)
-
-    normalized = -1 * 2 * I / (marg_ent_0 + marg_ent_1)  # harmonic mean
-
-    return normalized
-
-
-def nmi_gauss_mask(x1, x2, x1_bins, x2_bins, mask, sigma=1e-3, e=1e-10):
-    def gaussian_window_mask(x, bins, sigma):
-
-        assert x.ndim == 1, "Input tensor should be 2-dimensional."
-        return torch.exp(-((x[None, :] - bins[:, None]) ** 2) / (2 * sigma ** 2)) / (
-            math.sqrt(2 * math.pi) * sigma
-        )
-
-    x1_windowed = gaussian_window_mask(torch.masked_select(x1, mask), x1_bins, sigma)
-    x2_windowed = gaussian_window_mask(torch.masked_select(x2, mask), x2_bins, sigma)
-    p_XY = torch.mm(x1_windowed, x2_windowed.transpose(0, 1))
-    p_XY = p_XY + e  # deal with numerical instability
-
-    p_XY = p_XY / p_XY.sum()
-
-    p_X = p_XY.sum(0)
-    p_Y = p_XY.sum(1)
-
-    I = (p_XY * torch.log(p_XY / (p_X[None] * p_Y[:, None]))).sum()
-
-    marg_ent_0 = (p_X * torch.log(p_X)).sum()
-    marg_ent_1 = (p_Y * torch.log(p_Y)).sum()
-
-    normalized = -1 * 2 * I / (marg_ent_0 + marg_ent_1)  # harmonic mean
-
-    return normalized
 
 class MILossGaussian(nn.Module):
     """
@@ -375,6 +280,104 @@ class LNCCLoss(nn.Module):
         lncc = cov * cov / (x_var * y_var + 1e-5)
 
         return -torch.mean(lncc)
+    
+def compute_jacobian_loss(input_coords, output, batch_size=None):
+    """Compute the jacobian regularization loss."""
+
+    # Compute Jacobian matrices
+    jac = compute_jacobian_matrix(input_coords, output)
+
+    # Compute determinants and take norm
+    loss = torch.det(jac) - 1
+    loss = torch.linalg.norm(loss, 1)
+
+    return loss / batch_size
+
+
+def compute_hyper_elastic_loss(
+    input_coords, output, batch_size=None, alpha_l=1, alpha_a=1, alpha_v=1
+):
+    """Compute the hyper-elastic regularization loss."""
+
+    grad_u = compute_jacobian_matrix(input_coords, output, add_identity=False)
+    grad_y = grad_u
+    """
+    for i in range(3):
+        grad_y[:, i, i] += torch.ones_like(grad_y[:, i, i])
+    """
+    grad_y = compute_jacobian_matrix(
+        input_coords, output, add_identity=True
+    )  # This is slow, faster to infer from grad_u
+    
+    # Compute length loss
+    length_loss = torch.linalg.norm(grad_u, dim=(1, 2))
+    length_loss = torch.pow(length_loss, 2)
+    length_loss = torch.sum(length_loss)
+    length_loss = 0.5 * alpha_l * length_loss
+
+    # Compute cofactor matrices for the area loss
+    cofactors = torch.zeros(batch_size, 3, 3)
+
+    # Compute elements of cofactor matrices one by one (Ugliest solution ever?)
+    cofactors[:, 0, 0] = torch.det(grad_y[:, 1:, 1:])
+    cofactors[:, 0, 1] = torch.det(grad_y[:, 1:, 0::2])
+    cofactors[:, 0, 2] = torch.det(grad_y[:, 1:, :2])
+    cofactors[:, 1, 0] = torch.det(grad_y[:, 0::2, 1:])
+    cofactors[:, 1, 1] = torch.det(grad_y[:, 0::2, 0::2])
+    cofactors[:, 1, 2] = torch.det(grad_y[:, 0::2, :2])
+    cofactors[:, 2, 0] = torch.det(grad_y[:, :2, 1:])
+    cofactors[:, 2, 1] = torch.det(grad_y[:, :2, 0::2])
+    cofactors[:, 2, 2] = torch.det(grad_y[:, :2, :2])
+
+    # Compute area loss
+    area_loss = torch.pow(cofactors, 2)
+    area_loss = torch.sum(area_loss, dim=1)
+    area_loss = area_loss - 1
+    area_loss = torch.maximum(area_loss, torch.zeros_like(area_loss))
+    area_loss = torch.pow(area_loss, 2)
+    area_loss = torch.sum(area_loss)  # sum over dimension 1 and then 0
+    area_loss = alpha_a * area_loss
+
+    # Compute volume loss
+    volume_loss = torch.det(grad_y)
+    volume_loss = torch.mul(torch.pow(volume_loss - 1, 4), torch.pow(volume_loss, -2))
+    volume_loss = torch.sum(volume_loss)
+    volume_loss = alpha_v * volume_loss
+
+    # Compute total loss
+    loss = length_loss + area_loss + volume_loss
+
+    return loss / batch_size
+
+def compute_bending_energy(input_coords, output, batch_size=None):
+    """Compute the bending energy."""
+
+    jacobian_matrix = compute_jacobian_matrix(input_coords, output, add_identity=False)
+
+    dx_xyz = torch.zeros(input_coords.shape[0], 3, 3)
+    dy_xyz = torch.zeros(input_coords.shape[0], 3, 3)
+    dz_xyz = torch.zeros(input_coords.shape[0], 3, 3)
+    for i in range(3):
+        dx_xyz[:, i, :] = gradient(input_coords, jacobian_matrix[:, i, 0])
+        dy_xyz[:, i, :] = gradient(input_coords, jacobian_matrix[:, i, 1])
+        dz_xyz[:, i, :] = gradient(input_coords, jacobian_matrix[:, i, 2])
+
+    dx_xyz = torch.square(dx_xyz)
+    dy_xyz = torch.square(dy_xyz)
+    dz_xyz = torch.square(dz_xyz)
+
+    loss = (
+        torch.mean(dx_xyz[:, :, 0])
+        + torch.mean(dy_xyz[:, :, 1])
+        + torch.mean(dz_xyz[:, :, 2])
+    )
+    loss += (
+        2 * torch.mean(dx_xyz[:, :, 1])
+        + 2 * torch.mean(dx_xyz[:, :, 2])
+        + torch.mean(dy_xyz[:, :, 2])
+    )
+
+    return loss / batch_size
 
 
 def l2reg_loss(u):
@@ -407,67 +410,6 @@ def bending_energy_loss(u):
     loss = torch.cat(derives2, dim=1).pow(2).sum(dim=1).mean()
     return loss
 
-
-def finite_diff(x, dim, mode="forward", boundary="Neumann"):
-    """Input shape (N, ndim, *sizes), mode='foward', 'backward' or 'central'"""
-    assert type(x) is torch.Tensor
-    ndim = x.ndim - 2
-    sizes = x.shape[2:]
-
-    if mode == "central":
-        # TODO: implement central difference by 1d conv or dialated slicing
-        raise NotImplementedError("Finite difference central difference mode")
-    else:  # "forward" or "backward"
-        # configure padding of this dimension
-        paddings = [[0, 0] for _ in range(ndim)]
-        if mode == "forward":
-            # forward difference: pad after
-            paddings[dim][1] = 1
-        elif mode == "backward":
-            # backward difference: pad before
-            paddings[dim][0] = 1
-        else:
-            raise ValueError(f'Mode {mode} not recognised')
-
-        # reverse and join sublists into a flat list (Pytorch uses last -> first dim order)
-        paddings.reverse()
-        paddings = [p for ppair in paddings for p in ppair]
-
-        # pad data
-        if boundary == "Neumann":
-            # Neumann boundary condition
-            x_pad = F.pad(x, paddings, mode='replicate')
-        elif boundary == "Dirichlet":
-            # Dirichlet boundary condition
-            x_pad = F.pad(x, paddings, mode='constant')
-        else:
-            raise ValueError("Boundary condition not recognised.")
-
-        # slice and subtract
-        x_diff = x_pad.index_select(dim + 2, torch.arange(1, sizes[dim] + 1).to(device=x.device)) \
-                 - x_pad.index_select(dim + 2, torch.arange(0, sizes[dim]).to(device=x.device))
-
-        return x_diff
-
-def param_ndim_setup(param, ndim):
-    """
-    Check dimensions of paramters and extend dimension if needed.
-    Args:
-        param: (int/float, tuple or list) check dimension match if tuple or list is given,
-                expand to `dim` by repeating if a single integer/float number is given.
-        ndim: (int) data/model dimension
-    Returns:
-        param: (tuple)
-    """
-    if isinstance(param, (int, float)):
-        param = (param,) * ndim
-    elif isinstance(param, (tuple, list, omegaconf.listconfig.ListConfig)):
-        assert len(param) == ndim, \
-            f"Dimension ({ndim}) mismatch with data"
-        param = tuple(param)
-    else:
-        raise TypeError("Parameter type not int, tuple or list")
-    return param
 
 def total_variation_loss(img, edge_map=None):
      if edge_map != None:

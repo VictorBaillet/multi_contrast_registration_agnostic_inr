@@ -2,7 +2,8 @@ import torch
 import numpy as np
 import time
 import torch.nn as nn
-from utils.utils import input_mapping, get_string, fast_trilinear_interpolation, compute_jacobian_loss, compute_hyper_elastic_loss, compute_bending_energy
+from utils.utils import input_mapping, get_string, fast_trilinear_interpolation
+from loss_functions import compute_jacobian_loss, compute_hyper_elastic_loss, compute_bending_energy
 from utils.utils import input_mapping, compute_metrics, dict2obj, get_string, compute_mi_hist, compute_mi
 from utils.utils_visualization import show_slices_gt
 
@@ -20,7 +21,8 @@ def config_data(data, labels, device, config, input_mapper):
     contrast2_segm = None #segm[contrast2_mask,:]
     contrast2_data = data[contrast2_mask,:]
     
-    data = torch.cat((contrast1_data,contrast2_data), dim=0)
+    #data = torch.cat((contrast1_data,contrast2_data), dim=0)
+    data = contrast1_data
     
     if torch.cuda.is_available():
         data, contrast1_labels, contrast2_labels  = data.to(device=device), contrast1_labels.to(device=device), contrast2_labels.to(device=device)
@@ -45,9 +47,9 @@ def forward_iteration(model, raw_data, labels, wandb_batch_dict, epoch, model_na
     # compute the loss on both modalities!
     # target = torch.where(intensity_index, target[:, 1], target[:, 0])
     mse_target1 = target[:len(contrast1_labels),0]  # contrast1 output for contrast1 coordinate
-    mse_target2 = target[len(contrast1_labels):,1]  # contrast2 output for contrast2 coordinate
-    registration_target = target[len(contrast1_labels):,2:5].to(device=device)
-    #registration_target = target[:,2:5].to(device=device)
+    #mse_target2 = target[len(contrast1_labels):,1]  # contrast2 output for contrast2 coordinate
+    #registration_target = target[len(contrast1_labels):,2:5].to(device=device)
+    registration_target = target[:,2:5].to(device=device)
     # target_mse = torch.cat((mi_target1, mi_target2), dim=0)
     
     if config.MI_CC.MI_USE_PRED:
@@ -58,8 +60,8 @@ def forward_iteration(model, raw_data, labels, wandb_batch_dict, epoch, model_na
         mi_target1 = target[:len(contrast1_labels),0][contrast1_segm.squeeze()]  # contrast2 output for contrast1 coordinate !! ETRANGE !!
         mi_target2 = target[len(contrast1_labels):,1][contrast2_segm.squeeze()]   # contrast1 output for contrast2 coordinate
         
-    coord_temp = torch.add(registration_target, raw_data[len(contrast1_labels):].to(device=device))
-    #coord_temp = torch.add(registration_target, raw_data.to(device=device))
+    #coord_temp = torch.add(registration_target, raw_data[len(contrast1_labels):].to(device=device))
+    coord_temp = torch.add(registration_target, raw_data.to(device=device))
     
     #print(registration_target)
     #coord_temp = raw_data[len(contrast1_labels):].to(device=device)
@@ -75,13 +77,9 @@ def forward_iteration(model, raw_data, labels, wandb_batch_dict, epoch, model_na
         rev_affine
     )
     #mi_target2 = contrast2_interpolated.unsqueeze(1)
+
     
-    if epoch < 50:
-        loss = 10*(criterion(mse_target1, contrast1_labels.squeeze()))
-        #+ 0*config.TRAINING.LOSS_MSE_C2*criterion(target[len(contrast1_labels):,1], contrast2_interpolated.squeeze()))
-    else:
-        loss = 10*(criterion(mse_target1, contrast1_labels.squeeze()))
-        #+ 0*config.TRAINING.LOSS_MSE_C2*criterion(target[len(contrast1_labels):,1], contrast2_interpolated.squeeze()))
+    loss = criterion(mse_target1, contrast1_labels.squeeze()) + criterion(target[:,1], contrast2_interpolated.squeeze())
 
     wandb_batch_dict.update({'mse_loss': loss.item()})
     
@@ -91,21 +89,29 @@ def forward_iteration(model, raw_data, labels, wandb_batch_dict, epoch, model_na
     """
     if epoch < 50:
         loss += 10*bonus_loss
-    """
+    
     jacobian_loss = compute_jacobian_loss(raw_data.to(device=device), registration_target, batch_size=len(data))
-    hyperlastic_loss = compute_hyper_elastic_loss(raw_data.to(device=device), registration_target, batch_size=len(data))
+    
     #bending_energy = compute_bending_energy(raw_data.to(device=device), registration_target, batch_size=len(data))
     wandb_batch_dict.update({'jacobian_loss': jacobian_loss.item()})
+    
     wandb_batch_dict.update({'hyperlastic_loss': hyperlastic_loss.item()})
     #wandb_batch_dict.update({'bending_energy': bending_energy.item()})
-    loss += 0.1*jacobian_loss + 0.1*hyperlastic_loss #+ 0.01*bending_energy
-    
+    loss += 0.05*hyperlastic_loss #+ 0.1*jacobian_loss + 0.1*hyperlastic_loss #+ 0.01*bending_energy
+    """
+    jacobian_loss = compute_jacobian_loss(raw_data.to(device=device), registration_target, batch_size=len(data))
+    wandb_batch_dict.update({'jacobian_loss': jacobian_loss.item()})
+    loss += 0.05*jacobian_loss
+    if epoch > -1:
+        hyperlastic_loss = compute_hyper_elastic_loss(raw_data.to(device=device), registration_target, batch_size=len(data))
+        wandb_batch_dict.update({'hyperlastic_loss': hyperlastic_loss.item()})
+        loss += 0.05*hyperlastic_loss
     # mutual information loss
     if config.TRAINING.USE_MI or config.TRAINING.USE_NMI:
         if config.MI_CC.MI_USE_PRED:
             mi_loss = mi_criterion(mi_target1.unsqueeze(0).unsqueeze(0).detach(), mi_target2.unsqueeze(0).unsqueeze(0))
             if epoch > -1:
-                loss -= 0.01*config.MI_CC.LOSS_MI*(mi_loss)
+                loss -= 0.001*config.MI_CC.LOSS_MI*(mi_loss)
             if args.logging:
                 wandb_batch_dict.update({'mi_loss': (mi_loss).item()})
         else:
@@ -123,8 +129,9 @@ def forward_iteration(model, raw_data, labels, wandb_batch_dict, epoch, model_na
         if args.logging:
             wandb_batch_dict.update({'cc_loss': -(cc_loss1+cc_loss2).item()})
         '''
-        cc_loss = 0.014*cc_criterion(mi_target1.unsqueeze(0).unsqueeze(0), mi_target2.unsqueeze(0).unsqueeze(0))
-        loss += cc_loss
+        cc_loss = cc_criterion(mi_target1.unsqueeze(0).unsqueeze(0).detach(), mi_target2.unsqueeze(0).unsqueeze(0))
+        if epoch > -1:
+            loss += 0.001*cc_loss
         if args.logging:
             wandb_batch_dict.update({'cc_loss': -(cc_loss).item()})
     

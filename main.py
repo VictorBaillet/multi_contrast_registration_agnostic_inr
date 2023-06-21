@@ -13,10 +13,10 @@ import wandb
 
 from dataset.dataset import MultiModalDataset, InferDataset
 from utils.utils_visualization import show_slices_gt
-from utils.utils import input_mapping, compute_metrics, dict2obj, get_string, compute_mi_hist, compute_mi, generate_NIFTIs, fast_trilinear_interpolation
+from utils.utils import input_mapping, compute_metrics, dict2obj, get_string, compute_mi_hist, compute_mi, generate_NIFTIs, fast_trilinear_interpolation, gradient, compute_jacobian_matrix
 from utils.utils_training import forward_iteration, compute_and_log_metrics
 from utils.utils_config import create_datasets, create_model, create_losses, process_config, parse_args 
-from utils.loss_functions import MILossGaussian, NMI, NCC
+from loss_functions import MILossGaussian, NMI, NCC
 
 
 import time
@@ -75,7 +75,7 @@ def main(args):
     else:
         raise ValueError('Optim not defined!')
     
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max= config.TRAINING.EPOCHS)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max= config.TRAINING.EPOCHS_cos)
 
     # Load Data
     dataset, train_dataloader, infer_dataloader, threshold = create_datasets(config)
@@ -121,6 +121,7 @@ def main(args):
 
         loss_epoch = 0.0
         start = time.time()
+        i = 0
         for batch_idx, (data, labels) in enumerate(train_dataloader): #(data, labels, segm) in enumerate(train_dataloader):
             loss_batch = 0
             wandb_batch_dict = {}
@@ -142,6 +143,11 @@ def main(args):
             if args.logging:
                 wandb_batch_dict.update({'batch_loss': loss_batch})
                 wandb.log(wandb_batch_dict)  # update logs per batch
+                
+            if i > 10:
+                break
+            
+        
         # collect epoch stats
         epoch_time = time.time() - start
 
@@ -155,8 +161,8 @@ def main(args):
         if epoch == (config.TRAINING.EPOCHS -1):
             torch.save(model.state_dict(), model_path)
 
-
-        scheduler.step()
+        if epoch < 25 or epoch > 100:
+            scheduler.step()
         ################ INFERENCE #######################
 
         model_inference = model
@@ -165,9 +171,10 @@ def main(args):
         # start inference
         start = time.time()
 
-        out = np.zeros((int(x_dim_c1*y_dim_c1*z_dim_c1 + x_dim_c2*y_dim_c2*z_dim_c2), 5))
+        out = np.zeros((int(x_dim_c1*y_dim_c1*z_dim_c1 + x_dim_c2*y_dim_c2*z_dim_c2), 8))
         model_inference.to(device)
         for batch_idx, (data) in enumerate(infer_dataloader):
+            data.requires_grad_()
             raw_data = data
             if torch.cuda.is_available():
                 data = data.to(device)
@@ -180,9 +187,16 @@ def main(args):
                 data = data
                 
             output = model_inference(data)
-            """"
-            registration_target = output[:,2:]
+            
+            jac = compute_jacobian_matrix(raw_data, output[:, 2:5])
+            jac_norm = torch.norm(jac)
+            #det = torch.det(jac) - 1
+            
+            registration_norm = torch.norm(output[:, 2:5], dim=1)
+            
+            registration_target = output[:, 2:5]
             coord_temp = torch.add(registration_target, raw_data.to(device=device))
+            #coord_temp = raw_data.to(device=device)
             contrast2_interpolated = fast_trilinear_interpolation(
                 fixed_image,
                 coord_temp[:, 0],
@@ -193,12 +207,15 @@ def main(args):
                 device,
                 rev_affine
             )
-            output[:, 1] = contrast2_interpolated
-            """
+            #output[:, 1] = contrast2_interpolated
+            
             if config.MODEL.USE_SIREN or config.MODEL.USE_WIRE_REAL:
                 output, _ = output
 
-            out[batch_idx*5000:(batch_idx*5000 + len(output)),:] = output.cpu().detach().numpy() 
+            out[batch_idx*5000:(batch_idx*5000 + len(output)),:5] = output.cpu().detach().numpy() 
+            out[batch_idx*5000:(batch_idx*5000 + len(output)),5] = contrast2_interpolated.cpu().detach().numpy() 
+            out[batch_idx*5000:(batch_idx*5000 + len(output)),6] = jac_norm.cpu().detach().numpy() 
+            out[batch_idx*5000:(batch_idx*5000 + len(output)),7] = registration_norm.cpu().detach().numpy() 
 
         model_intensities=out
         

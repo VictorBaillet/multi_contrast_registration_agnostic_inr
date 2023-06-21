@@ -6,10 +6,10 @@ from typing import List, Tuple, Optional
 import torch.nn as nn
 from math import log, sqrt
 import wandb
-from utils.utils_visualization import show_slices_gt, show_slices_registration
+from utils.utils_visualization import show_slices_gt, show_slices_registration, show_jacobian_det
 from skimage.metrics import structural_similarity, peak_signal_noise_ratio
 
-from utils.loss_functions import MILossGaussian, NMI, NCC
+from loss_functions import MILossGaussian, NMI, NCC
 import matplotlib.pyplot as plt 
 from sklearn.preprocessing import MinMaxScaler
 
@@ -258,17 +258,26 @@ def generate_NIFTIs(dataset, model_intensities, image_dir, model_name_epoch, epo
     threshold = len(dataset.get_contrast1_coordinates())
     model_intensities_contrast1 = model_intensities[:threshold,0] # contrast1
     model_intensities_contrast2 = model_intensities[threshold:,1] # contrast2
-    model_registration = model_intensities[threshold:,2:]
+    model_intensities_contrast2_interpolated = model_intensities[threshold:,5] # contrast2
+    model_registration = model_intensities[threshold:,2:5]
+    model_registration_jac_det = model_intensities[threshold:,6]
+    model_registration_norm = model_intensities[threshold:,7]
 
     label_arr = np.array(model_intensities_contrast1, dtype=np.float32)
     model_intensities_contrast1= np.clip(label_arr.reshape(-1, 1), 0, 1)
 
     label_arr = np.array(model_intensities_contrast2, dtype=np.float32)
     model_intensities_contrast2= np.clip(label_arr.reshape(-1, 1), 0, 1)
+    
+    label_arr = np.array(model_intensities_contrast2_interpolated, dtype=np.float32)
+    model_intensities_contrast2_interpolated= np.clip(label_arr.reshape(-1, 1), 0, 1)
 
     img_contrast1 = model_intensities_contrast1.reshape((x_dim_c1, y_dim_c1, z_dim_c1))#.cpu().numpy()
     img_contrast2 = model_intensities_contrast2.reshape((x_dim_c2, y_dim_c2, z_dim_c2))#.cpu().numpy()
+    img_contrast2_interpolated = model_intensities_contrast2_interpolated.reshape((x_dim_c2, y_dim_c2, z_dim_c2))#.cpu().numpy()
     img_registration = model_registration.reshape((x_dim_c2, y_dim_c2, z_dim_c2, 3))#.cpu().numpy()
+    model_registration_jac_det = model_registration_jac_det.reshape((x_dim_c2, y_dim_c2, z_dim_c2))#.cpu().numpy()
+    model_registration_norm = model_registration_norm.reshape((x_dim_c2, y_dim_c2, z_dim_c2))
 
     gt_contrast1 = dataset.get_contrast1_gt().reshape((x_dim_c1, y_dim_c1, z_dim_c1)).cpu().numpy()
     gt_contrast2 = dataset.get_contrast2_gt().reshape((x_dim_c2, y_dim_c2, z_dim_c2)).cpu().numpy()
@@ -305,13 +314,22 @@ def generate_NIFTIs(dataset, model_intensities, image_dir, model_name_epoch, epo
         image = wandb.Image(im, caption=f"{config.DATASET.LR_CONTRAST1} prediction vs gt.")
         wandb_epoch_dict.update({f"{config.DATASET.LR_CONTRAST1}": image})
         
+    slice_0 = img_contrast2[int(x_dim_c1/2), :, :]
+    slice_1 = img_contrast2[:, int(y_dim_c1/2), :]
+    slice_2 = img_contrast2[:, :, int(z_dim_c1/2)]
+
+    im = show_slices_gt([slice_0, slice_1, slice_2],[bslice_0, bslice_1, bslice_2], epoch)
+    if args.logging:
+        image = wandb.Image(im, caption=f"{config.DATASET.LR_CONTRAST2} prediction vs {config.DATASET.LR_CONTRAST1} gt.")
+        wandb_epoch_dict.update({f"{config.DATASET.LR_CONTRAST2} prediction vs {config.DATASET.LR_CONTRAST1} gt": image})
+        
     img = nib.Nifti1Image(img_contrast2, affine_c2)
     if epoch == (config.TRAINING.EPOCHS -1):
         nib.save(img, os.path.join(image_dir, model_name_epoch.replace("model.pt", f"_ct2.nii.gz")))
 
-    slice_0 = img_contrast2[int(x_dim_c2/2), :, :]
-    slice_1 = img_contrast2[:, int(y_dim_c2/2), :]
-    slice_2 = img_contrast2[:, :, int(z_dim_c2/2)]
+    slice_0 = img_contrast2_interpolated[int(x_dim_c2/2), :, :]
+    slice_1 = img_contrast2_interpolated[:, int(y_dim_c2/2), :]
+    slice_2 = img_contrast2_interpolated[:, :, int(z_dim_c2/2)]
 
     bslice_0 = gt_contrast2[int(x_dim_c2/2), :, :]
     bslice_1 = gt_contrast2[:, int(y_dim_c2/2), :]
@@ -320,16 +338,35 @@ def generate_NIFTIs(dataset, model_intensities, image_dir, model_name_epoch, epo
     registration_slice_0 = img_registration[int(x_dim_c2/2), :, :, :]
     registration_slice_1 = img_registration[:, int(y_dim_c2/2), :, :]
     registration_slice_2 = img_registration[:, :, int(z_dim_c2/2), :]
+    
+    reg_jac_det_slice_0 = model_registration_jac_det[int(x_dim_c2/2), :, :]
+    reg_jac_det_slice_1 = model_registration_jac_det[:, int(y_dim_c2/2), :]
+    reg_jac_det_slice_2 = model_registration_jac_det[:, :, int(z_dim_c2/2)]
+    
+    registration_norm_slice_0 = model_registration_norm[int(x_dim_c2/2), :, :]
+    registration_norm_slice_1 = model_registration_norm[:, int(y_dim_c2/2), :]
+    registration_norm_slice_2 = model_registration_norm[:, :, int(z_dim_c2/2)]
 
     im = show_slices_gt([slice_0, slice_1, slice_2],[bslice_0, bslice_1, bslice_2], epoch)
     if args.logging:
-        image = wandb.Image(im, caption=f"{config.DATASET.LR_CONTRAST2} prediction vs gt.")
+        image = wandb.Image(im, caption=f"{config.DATASET.LR_CONTRAST2} prediction (reversed registration) vs gt.")
         wandb_epoch_dict.update({f"{config.DATASET.LR_CONTRAST2}": image})
         
     im_registration = show_slices_registration([registration_slice_0, registration_slice_1, registration_slice_2], epoch)
     if args.logging:
         image = wandb.Image(im_registration, caption=f"{config.DATASET.LR_CONTRAST2} registration field")
         wandb_epoch_dict.update({f"{config.DATASET.LR_CONTRAST2} registration field": image})
+        
+    im_registration_jac_det = show_jacobian_det([reg_jac_det_slice_0, reg_jac_det_slice_1, reg_jac_det_slice_2], epoch, f"Jacobian determinant map after {epoch}.")
+    if args.logging:
+        image = wandb.Image(im_registration_jac_det, caption=f"{config.DATASET.LR_CONTRAST2} registration jacobian determinant map")
+        wandb_epoch_dict.update({f"{config.DATASET.LR_CONTRAST2} registration jacobian determinant map": image})
+        
+    im_registration_norm = show_jacobian_det([registration_norm_slice_0, registration_norm_slice_1, registration_norm_slice_2], epoch, f"Norm of the registration function after {epoch}.")
+    
+    if args.logging:
+        image = wandb.Image(im_registration_norm, caption=f"{config.DATASET.LR_CONTRAST2} registration norm map")
+        wandb_epoch_dict.update({f"{config.DATASET.LR_CONTRAST2} registration norm map": image})
         
     return pred_contrast1, pred_contrast2, gt_contrast1, gt_contrast2, wandb_epoch_dict
 
@@ -357,6 +394,7 @@ def compute_jacobian_matrix(input_coords, output, add_identity=True):
     return jacobian_matrix
 
 
+
 def gradient(input_coords, output, grad_outputs=None):
     """Compute the gradient of the output wrt the input."""
 
@@ -372,10 +410,15 @@ def compute_hyper_elastic_loss(
     """Compute the hyper-elastic regularization loss."""
 
     grad_u = compute_jacobian_matrix(input_coords, output, add_identity=False)
+    grad_y = grad_u
+    """
+    for i in range(3):
+        grad_y[:, i, i] += torch.ones_like(grad_y[:, i, i])
+    """
     grad_y = compute_jacobian_matrix(
         input_coords, output, add_identity=True
     )  # This is slow, faster to infer from grad_u
-
+    
     # Compute length loss
     length_loss = torch.linalg.norm(grad_u, dim=(1, 2))
     length_loss = torch.pow(length_loss, 2)
