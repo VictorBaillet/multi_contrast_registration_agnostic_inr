@@ -1,11 +1,11 @@
 SETTINGS:
-  DIRECTORY: 'registered_spine_generic' 
-  PROJECT_NAME: 'registered_spine_generic'
+  DIRECTORY: 'projects/data/spine_generic' 
+  PROJECT_NAME: 'spine_generic'
   GPU_DEVICE: 0
   NUM_WORKERS: 16
 
 DATASET:
-  SUBJECT_ID: '460902' 
+  SUBJECT_ID: 'sub-hamburg02-shifted' 
   LR_CONTRAST1: 'T1w_LR'  
   LR_CONTRAST2: 'T2w_LR' 
 
@@ -14,21 +14,28 @@ DATASET:
 TRAINING:
 
   SEED: 12
-  BATCH_SIZE: 1000
+  BATCH_SIZE: 10000
   LR: 0.0004
-  EPOCHS: 50
+  EPOCHS_cos: 50
+  EPOCHS: 100
   OPTIM: 'Adam'
   SHUFFELING: True
-  CONTRAST1_ONLY: False
-  CONTRAST2_ONLY: False
-  LOSS: 'MSELoss'
-  LOSS_MSE_C1: 1.0
-  LOSS_MSE_C2: 1.0
+  SIMILARITY_LOSS: 'MSELoss'
+  
+  LOSS_WEIGHT:
+      MSE_C1: 1.0
+      MSE_C2: 1.0
+      CC: 0.001
+      MI: 0.01
+      BENDING_ENERGY: 5
+      JACOBIAN: 0.5
+      HYPER_ELASTIC: 0.0005 
+      NORM_LOSS: 0.0005
 
   # only one used at same time
-  USE_MI: False
+  USE_MI: True
   USE_NMI: False
-  USE_CC: False
+  USE_CC: True
 
 
 MODEL:
@@ -51,18 +58,16 @@ SIREN:
   FIRST_OMEGA_0: 15
   HIDDEN_OMEGA_0: 15
 
+MI_CC:
+  LOSS_MI: 0.5
+  LOSS_CC: 0.0008
+  MI_NUM_BINS: 32  
+  MI_SAMPLE_RATIO: 0.7
+  NMI_SIGMA: 0.1
+  
 WIRE:
   WIRE_REAL_FIRST_OMEGA_0: 15
   WIRE_REAL_HIDDEN_OMEGA_0: 15
   WIRE_REAL_FIRST_S_0: 15
   WIRE_REAL_HIDDEN_S_0: 15
-
-MI_CC:
-  LOSS_MI: 0.005
-  GT_VAL: 0.471
-  LOSS_CC: 0.0008
-  MI_USE_PRED: False
-  MI_NUM_BINS: 32  
-  MI_SAMPLE_RATIO: 0.7
-  NMI_SIGMA: 0.1
 

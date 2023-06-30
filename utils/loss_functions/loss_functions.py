@@ -9,7 +9,7 @@ from torch.nn.modules.loss import _Loss
 import pdb
 
 
-from utils.utils_loss import nmi_gauss, nmi_gauss_mask, StableStd, finite_diff, param_ndim_setup, ncc_mask, ncc, gradient, compute_jacobian_matrix
+from utils.loss_functions.utils_loss import nmi_gauss, nmi_gauss_mask, StableStd, finite_diff, param_ndim_setup, ncc_mask, ncc, gradient, compute_jacobian_matrix
 
 class _WeightedLoss(_Loss):
     def __init__(self, weight: Optional[Tensor] = None, size_average=None, reduce=None, reduction: str = 'mean') -> None:
@@ -121,7 +121,7 @@ class MILossGaussian(nn.Module):
     def __init__(self,
                  vmin=0.0,
                  vmax=1.0,
-                 num_bins=16, # 32 or 64 
+                 num_bins=64, # 32 or 64 
                  sample_ratio=1.0, #0.7 for t1 and t2
                  normalised=True,
                  gt_val=None,
@@ -281,32 +281,31 @@ class LNCCLoss(nn.Module):
 
         return -torch.mean(lncc)
     
-def compute_jacobian_loss(input_coords, output, batch_size=None):
+def compute_jacobian_loss(input_coords, output, device, batch_size=None):
     """Compute the jacobian regularization loss."""
-
     # Compute Jacobian matrices
-    jac = compute_jacobian_matrix(input_coords, output)
-
+    jac = compute_jacobian_matrix(input_coords, output, device=device)
+    
     # Compute determinants and take norm
     loss = torch.det(jac) - 1
     loss = torch.linalg.norm(loss, 1)
-
     return loss / batch_size
 
 
+
 def compute_hyper_elastic_loss(
-    input_coords, output, batch_size=None, alpha_l=1, alpha_a=1, alpha_v=1
+    input_coords, output, device, batch_size=None, alpha_l=1, alpha_a=1, alpha_v=1
 ):
     """Compute the hyper-elastic regularization loss."""
 
-    grad_u = compute_jacobian_matrix(input_coords, output, add_identity=False)
+    grad_u = compute_jacobian_matrix(input_coords, output, device, add_identity=False)
     grad_y = grad_u
     """
     for i in range(3):
         grad_y[:, i, i] += torch.ones_like(grad_y[:, i, i])
     """
     grad_y = compute_jacobian_matrix(
-        input_coords, output, add_identity=True
+        input_coords, output, device, add_identity=True
     )  # This is slow, faster to infer from grad_u
     
     # Compute length loss
@@ -316,7 +315,7 @@ def compute_hyper_elastic_loss(
     length_loss = 0.5 * alpha_l * length_loss
 
     # Compute cofactor matrices for the area loss
-    cofactors = torch.zeros(batch_size, 3, 3)
+    cofactors = torch.zeros(batch_size, 3, 3, device=device)
 
     # Compute elements of cofactor matrices one by one (Ugliest solution ever?)
     cofactors[:, 0, 0] = torch.det(grad_y[:, 1:, 1:])
@@ -345,22 +344,22 @@ def compute_hyper_elastic_loss(
     volume_loss = alpha_v * volume_loss
 
     # Compute total loss
-    loss = length_loss + area_loss + volume_loss
+    loss = length_loss + area_loss + 0*volume_loss
 
     return loss / batch_size
 
-def compute_bending_energy(input_coords, output, batch_size=None):
+def compute_bending_energy(input_coords, output, device, batch_size=None):
     """Compute the bending energy."""
 
-    jacobian_matrix = compute_jacobian_matrix(input_coords, output, add_identity=False)
+    jacobian_matrix = compute_jacobian_matrix(input_coords, output, device, add_identity=False)
 
-    dx_xyz = torch.zeros(input_coords.shape[0], 3, 3)
-    dy_xyz = torch.zeros(input_coords.shape[0], 3, 3)
-    dz_xyz = torch.zeros(input_coords.shape[0], 3, 3)
+    dx_xyz = torch.zeros(input_coords.shape[0], 3, 3, device=device)
+    dy_xyz = torch.zeros(input_coords.shape[0], 3, 3, device=device)
+    dz_xyz = torch.zeros(input_coords.shape[0], 3, 3, device=device)
     for i in range(3):
-        dx_xyz[:, i, :] = gradient(input_coords, jacobian_matrix[:, i, 0])
-        dy_xyz[:, i, :] = gradient(input_coords, jacobian_matrix[:, i, 1])
-        dz_xyz[:, i, :] = gradient(input_coords, jacobian_matrix[:, i, 2])
+        dx_xyz[:, i, :] = gradient(input_coords, jacobian_matrix[:, i, 0], device)
+        dy_xyz[:, i, :] = gradient(input_coords, jacobian_matrix[:, i, 1], device)
+        dz_xyz[:, i, :] = gradient(input_coords, jacobian_matrix[:, i, 2], device)
 
     dx_xyz = torch.square(dx_xyz)
     dy_xyz = torch.square(dy_xyz)

@@ -2,6 +2,8 @@
 ##matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
+from skimage.metrics import structural_similarity, peak_signal_noise_ratio
 
 
 def show_slices(slices, epoch):
@@ -75,3 +77,50 @@ def show_jacobian_det(slices, epoch, suptitle):
     #plt.tight_layout()
     return fig
     
+
+def compute_metrics(gt, pred, mask, lpips_loss, device):
+
+    if type(mask) == torch.Tensor:
+        mask = mask.float().cpu().numpy()
+
+    assert mask.max() == 1.0, 'Mask Format incorrect.'
+    #assert mask.min() == 0.0, 'Mask Format incorrect.'
+
+    gt -= gt.min()#gt[mask == 1].min()
+    gt /= gt.max()
+    #gt *= mask
+
+    pred -= pred.min()#[mask == 1].min()
+    pred /= pred.max()
+    #pred *= mask
+
+    ssim = structural_similarity(gt, pred, data_range=1)
+    psnr = peak_signal_noise_ratio(gt, pred, data_range=1)
+
+    x, y, z = pred.shape
+
+    lpips_val = 0
+
+    for i in range(x):
+        pred_t = torch.tensor(pred[i,:,:]).reshape(1, y, z).repeat(3,1,1).to(device)
+        gt_t = torch.tensor(gt[i,:,:]).reshape(1, y, z).repeat(3,1,1).to(device)
+        lpips_val += lpips_loss(gt_t, pred_t)
+
+    for i in range(y):
+        pred_t = torch.tensor(pred[:,i,:]).reshape(1, x, z).repeat(3,1,1).to(device)
+        gt_t = torch.tensor(gt[:,i,:]).reshape(1, x, z).repeat(3,1,1).to(device)
+        lpips_val += lpips_loss(gt_t, pred_t)
+
+    for i in range(z):
+        pred_t = torch.tensor(pred[:,:,i]).reshape(1, x, y).repeat(3,1,1).to(device)
+        gt_t = torch.tensor(gt[:,:,i]).reshape(1, x, y).repeat(3,1,1).to(device)
+        lpips_val += lpips_loss(gt_t, pred_t)
+
+    lpips_val /= (x+y+z)
+
+    vals = {}
+    vals["ssim"]= ssim
+    vals["psnr"]= psnr
+    vals["lpips"] = lpips_val.item()
+
+    return vals

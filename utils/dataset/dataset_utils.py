@@ -3,28 +3,11 @@ import numpy as np
 import torch
 from tqdm import tqdm
 # import SimpleITK as sitk
-import torch.nn.functional as F
 import nibabel as nib
 from sklearn.preprocessing import MinMaxScaler
 
 from scipy import ndimage
 from skimage import filters
-
-# from Tancik et al.:
-# https://github.com/tancik/fourier-feature-networks/blob/master/Experiments/3d_MRI.ipynb
-# https://github.com/tancik/fourier-feature-networks/blob/master/Demo.ipynb
-# Fourier feature mapping
-def input_mapping(x, B):
-    '''
-    :param x: vector if input features
-    :param B: matrix or None
-    :return: 
-    '''
-    if B is None:
-        return x
-    else:
-        x_proj = (2. * np.pi * x) @ B.T
-        return np.concatenate([np.sin(x_proj), np.cos(x_proj)], axis=-1)
 
 
 def norm_grid(grid, xmin, xmax, smin=-1, smax=1):
@@ -33,51 +16,6 @@ def norm_grid(grid, xmin, xmax, smin=-1, smax=1):
 
     return min_max_scale(X=grid, x_min=xmin, x_max=xmax, s_min=smin, s_max=smax)
 
-
-def calculate_sobel_filter(image: nibabel.Nifti1Image):
-    img_data = image.get_fdata()
-
-    sobelx = ndimage.sobel(img_data, axis=0)
-    sobely = ndimage.sobel(img_data, axis=1)
-    sobelz = ndimage.sobel(img_data, axis=2)
-
-    sobel = np.sqrt(sobelx**2 + sobely**2, sobelz**2)
-
-    scaler = MinMaxScaler()
-    sobel = scaler.fit_transform(sobel.reshape(-1, 1)).reshape(img_data.shape)
-
-    return sobel
-
-
-def calculate_sobel_median_filter(image: nibabel.Nifti1Image, median_filter_size=(1,1,1)):
-    img_data = image.get_fdata()
-
-    sobelx = ndimage.sobel(img_data, axis=0)
-    sobely = ndimage.sobel(img_data, axis=1)
-    sobelz = ndimage.sobel(img_data, axis=2)
-
-    sobel = np.sqrt(sobelx**2 + sobely**2, sobelz**2)
-
-    sobel = ndimage.median_filter(sobel, size=median_filter_size)
-
-    scaler = MinMaxScaler()
-    sobel = scaler.fit_transform(sobel.reshape(-1, 1)).reshape(img_data.shape)
-
-    return sobel
-
-
-def calculate_laplacian(image: nibabel.Nifti1Image):
-
-    img_data = image.get_fdata()
-    # Apply a Gaussian filter to smooth the image
-    img_smooth = filters.gaussian(img_data, sigma=1)
-    # Calculate the Laplacian of the smoothed image using the filters.laplace function
-
-    laplacian = np.abs(filters.laplace(img_smooth))
-    scaler = MinMaxScaler()
-    scaled = scaler.fit_transform(laplacian.reshape(-1, 1)).reshape(img_data.shape)
-
-    return scaled
 
 def get_crop_indexes(image1: nibabel.Nifti1Image, image2: nibabel.Nifti1Image,
                    image1_lr: nibabel.Nifti1Image, image2_lr: nibabel.Nifti1Image):
@@ -231,3 +169,49 @@ def get_image_coordinate_grid_nib(image: nibabel.Nifti1Image, slice=False):
         'image_data' : img_data,
     }
     return image_dict
+
+def calculate_sobel_filter(image: nibabel.Nifti1Image):
+    img_data = image.get_fdata()
+
+    sobelx = ndimage.sobel(img_data, axis=0)
+    sobely = ndimage.sobel(img_data, axis=1)
+    sobelz = ndimage.sobel(img_data, axis=2)
+
+    sobel = np.sqrt(sobelx**2 + sobely**2, sobelz**2)
+
+    scaler = MinMaxScaler()
+    sobel = scaler.fit_transform(sobel.reshape(-1, 1)).reshape(img_data.shape)
+
+    return sobel
+
+
+def calculate_sobel_median_filter(image: nibabel.Nifti1Image, median_filter_size=(1,1,1)):
+    img_data = image.get_fdata()
+
+    sobelx = ndimage.sobel(img_data, axis=0)
+    sobely = ndimage.sobel(img_data, axis=1)
+    sobelz = ndimage.sobel(img_data, axis=2)
+
+    sobel = np.sqrt(sobelx**2 + sobely**2, sobelz**2)
+
+    sobel = ndimage.median_filter(sobel, size=median_filter_size)
+
+    scaler = MinMaxScaler()
+    sobel = scaler.fit_transform(sobel.reshape(-1, 1)).reshape(img_data.shape)
+
+    return sobel
+
+
+def calculate_laplacian(image: nibabel.Nifti1Image):
+
+    img_data = image.get_fdata()
+    # Apply a Gaussian filter to smooth the image
+    img_smooth = filters.gaussian(img_data, sigma=1)
+    # Calculate the Laplacian of the smoothed image using the filters.laplace function
+
+    laplacian = np.abs(filters.laplace(img_smooth))
+    scaler = MinMaxScaler()
+    scaled = scaler.fit_transform(laplacian.reshape(-1, 1)).reshape(img_data.shape)
+
+    return scaled
+

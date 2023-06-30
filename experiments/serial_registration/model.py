@@ -11,31 +11,6 @@ def fc_block(in_size, out_size, dropout,*args, **kwargs):
         nn.Dropout(dropout),
     )
 
-class MLPv1(nn.Module):
-    def __init__(self, input_size=3, hidden_size=512, output_size=1, dropout=0, num_layers=5):
-        super(MLPv1, self).__init__()
-        self.input_size = input_size
-        self.hidden_size = hidden_size
-        self.output_size = output_size
-        self.dropout = dropout
-        self.num_layers = num_layers
-        fc_blocks = [fc_block(self.hidden_size,self.hidden_size, self.dropout) for i in range(self.num_layers)]
-        self.fc_in = nn.Linear(self.input_size, self.hidden_size)
-        self.fc_out = nn.Linear(self.hidden_size, self.output_size)
-        self.fc = nn.Sequential(*fc_blocks)
-        self.dropout_layer = nn.Dropout(self.dropout)
-
-    def forward(self, x):
-        # flatten image
-        x = x.view(-1, self.input_size)
-        x = F.relu(self.fc_in(x))
-        x = self.dropout_layer(x)
-        x = self.fc(x)
-        # add output layer
-        x = self.fc_out(x)
-        return x
-    
-
 class MLPv2(nn.Module):
     def __init__(self, input_size=3, hidden_size=512, output_size=1, dropout=0, num_layers=5):
         super(MLPv2, self).__init__()
@@ -107,87 +82,6 @@ class MLPv3(nn.Module):
         x2 = self.out2(self.fc_head1(x2))
         return torch.cat((x1,x2),dim=1)
     
-class MLPregv1(nn.Module):
-    def __init__(self, input_size=3, hidden_size=512, output_size=1, dropout=0, num_layers=5):
-        super(MLPregv1, self).__init__()
-        self.input_size = input_size
-        self.hidden_size = hidden_size
-        self.output_size = output_size
-        self.dropout = dropout
-        self.num_layers = num_layers
-        fc_blocks = [fc_block(self.hidden_size,self.hidden_size, self.dropout) for i in range(self.num_layers)]
-        self.fc_in = nn.Linear(self.input_size, self.hidden_size)
-        self.fc_out1 = nn.Linear(self.hidden_size, self.hidden_size//2)
-        self.fc_out2 = nn.Linear(self.hidden_size, self.hidden_size//2)
-        self.fc_out3 = nn.Linear(self.hidden_size, self.hidden_size//2)
-        self.out1 = nn.Linear(self.hidden_size//2, self.output_size//2)
-        self.out2 = nn.Linear(self.hidden_size//2, self.output_size//2)
-        self.out3 = nn.Linear(self.hidden_size//2, 3)
-        self.fc = nn.Sequential(*fc_blocks)
-        self.dropout_layer = nn.Dropout(self.dropout)
-
-    def forward(self, x):
-        # flatten image
-        x = x.view(-1, self.input_size)
-        x = F.relu(self.fc_in(x))
-        x = self.dropout_layer(x)
-        x = self.fc(x)
-        # add output layer
-        x1 = x
-        x2 = x
-        x3 = x
-        x1 = self.out1(F.relu(self.fc_out1(x1)))
-        x2 = self.out2(F.relu(self.fc_out2(x2)))
-        x3 = self.out3(F.relu(self.fc_out3(x3)))
-        return torch.cat((x1,x2,x3),dim=1)
-
-class MLPregv2(nn.Module):
-    def __init__(self, input_size=3, hidden_size=512, output_size=1, dropout=0, num_layers=5, num_layers_head=3):
-        super(MLPregv2, self).__init__()
-        self.input_size = input_size
-        self.hidden_size = hidden_size
-        self.output_size = output_size
-        self.dropout = dropout
-        self.num_layers = num_layers
-        self.num_layers_head = num_layers_head
-
-        fc_blocks = [fc_block(self.hidden_size,self.hidden_size, self.dropout) for i in range(self.num_layers)]
-        self.fc_in = nn.Linear(self.input_size, self.hidden_size)
-        self.fc_out1 = nn.Linear(self.hidden_size, self.hidden_size//2)
-        self.fc_out2 = nn.Linear(self.hidden_size, self.hidden_size//2)
-        self.fc_out3 = nn.Linear(self.hidden_size, self.hidden_size//2)
-        fc_head1 = [fc_block(self.hidden_size//2,self.hidden_size//2, self.dropout) for i in range(self.num_layers_head)]
-        fc_head2 = [fc_block(self.hidden_size//2,self.hidden_size//2, self.dropout) for i in range(self.num_layers_head)]    
-        fc_head3 = [fc_block(self.hidden_size//2,self.hidden_size//2, self.dropout) for i in range(self.num_layers_head)]    
-        self.fc_head1 = nn.Sequential(*fc_head1)
-        self.fc_head2 = nn.Sequential(*fc_head2)
-        self.fc_head3 = nn.Sequential(*fc_head3)
-        self.out1 = nn.Linear(self.hidden_size//2, self.output_size//2)
-        self.out2 = nn.Linear(self.hidden_size//2, self.output_size//2)
-        self.out3 = nn.Linear(self.hidden_size//2, 3)
-        self.fc = nn.Sequential(*fc_blocks)
-        self.dropout_layer = nn.Dropout(self.dropout)
-
-    def forward(self, x):
-        # flatten image
-        x = x.view(-1, self.input_size)
-        x = F.relu(self.fc_in(x))
-        x = self.dropout_layer(x)
-        x = self.fc(x)
-        # split heads layer
-        x1 = x
-        x2 = x
-        x3 = x
-        
-        x1 = F.relu(self.fc_out1(x1))
-        x2 = F.relu(self.fc_out2(x2))
-        x3 = F.relu(self.fc_out3(x3))
-
-        x1 = self.out1(self.fc_head1(x1))
-        x2 = self.out2(self.fc_head2(x2))
-        x3 = self.out3(self.fc_head3(x3))
-        return torch.cat((x1,x2,x3),dim=1)
-
 
 # source: https://colab.research.google.com/github/vsitzmann/siren/blob/master/explore_siren.ipynb#scrollTo=Eo1TYp2ePynt
 class SineLayer(nn.Module):
@@ -274,7 +168,7 @@ class WireLayerNonComplex(nn.Module):
 
 
 class Siren(nn.Module):
-    def __init__(self, in_features, hidden_features, hidden_layers, out_features, outermost_linear=False,
+    def __init__(self, in_features, hidden_features, hidden_layers, out_features, outermost_linear=True,
                  first_omega_0=30, hidden_omega_0=30.):
         super().__init__()
 
@@ -301,7 +195,7 @@ class Siren(nn.Module):
         self.net = nn.Sequential(*self.net)
 
     def forward(self, coords):
-        coords = coords.clone().detach().requires_grad_(True)  # allows to take derivative w.r.t. input
+        #coords = coords.clone().detach().requires_grad_(True)  # allows to take derivative w.r.t. input
         output = self.net(coords)
         return output, coords
 

@@ -1,13 +1,13 @@
-from pathlib import Path
 import os
 import torch
-from torch.utils.data import Dataset
-from typing import Tuple
-from dataset.dataset_utils import get_image_coordinate_grid_nib, norm_grid, crop_images
-import nibabel as nib
 import numpy as np
+import nibabel as nib
 from tqdm import tqdm
-from sklearn.preprocessing import MinMaxScaler
+from pathlib import Path
+from typing import Tuple
+from torch.utils.data import Dataset
+
+from utils.dataset.dataset_utils import get_image_coordinate_grid_nib, norm_grid, crop_images
 
 class _BaseDataset(Dataset):
     """Base dataset class"""
@@ -73,15 +73,12 @@ class MultiModalDataset(_BaseDataset):
             f'.pt'
         )
 
-        print(self.dataset_name)
-
         files = sorted(list(Path(self.image_dir).rglob('*.nii.gz'))) 
         files = [str(x) for x in files]
 
 
         # only keep NIFTIs that follow specific subject 
         files = [k for k in files if self.subject_id in k]
-        print(files)
 
         # flair3 and flair3d_LR or t1 and t1_LR
         gt_contrast1 = [x for x in files if self.contrast1_GT_str in x and self.contrast1_LR_str not in x and 'mask' not in x][0]
@@ -108,12 +105,11 @@ class MultiModalDataset(_BaseDataset):
         #gt_contrast2_dict = get_image_coordinate_grid_nib(nib.load(str(self.gt_contrast2)))
         #self.gt_constrast2_img_data = gt_contrast2_dict["image_data"]
         
-        dataset_path = os.path.join(os.path.join(os.getcwd(), "projects/preprocessed_data"), self.dataset_name)
-        print(dataset_path)
+        self.dataset_path = os.path.join(os.path.join(os.getcwd(), "projects/preprocessed_data"), self.dataset_name)
         
-        if os.path.isfile(dataset_path):
-            print("Dataset available.")
-            dataset = torch.load(dataset_path)
+        if os.path.isfile(self.dataset_path):
+            print("Dataset available : ", self.dataset_name)
+            dataset = torch.load(self.dataset_path)
             self.data = dataset["data"]
             self.data_contrast1 = dataset["data_contrast1"]
             self.data_contrast2 = dataset["data_contrast2"]
@@ -248,12 +244,7 @@ class MultiModalDataset(_BaseDataset):
         min1, max1 = data_contrast1.min(), data_contrast1.max()
         min2, max2 = data_contrast2.min(), data_contrast2.max()
 
-        print(min1, max1)
-        print(min2, max2)
-
         min_c, max_c = np.min(np.array([min1, min2])), np.max(np.array([max1, max2]))
-
-        print(min_c, max_c)
 
         data_contrast1 = norm_grid(data_contrast1, xmin=min_c, xmax=max_c)
         data_contrast2 = norm_grid(data_contrast2, xmin=min_c, xmax=max_c)
@@ -316,9 +307,6 @@ class MultiModalDataset(_BaseDataset):
         self.dim_contrast1 = gt_contrast1_dict["dim"]
         self.dim_contrast2 = gt_contrast2_dict["dim"]
 
-        print(self.data.shape)
-        print(self.label.shape)
-
         # store to avoid preprocessing
         dataset = {
             'len': self.len,
@@ -342,9 +330,9 @@ class MultiModalDataset(_BaseDataset):
             'coordinates_contrast1': self.coordinates_contrast1,
             'coordinates_contrast2': self.coordinates_contrast2,
         }
-        if not os.path.exists(os.path.join(os.path.join(os.getcwd(), "project/preprocessed_data"), self.dataset_name[0])):
-            os.makedirs(os.path.join(os.path.join(os.getcwd(), "project/preprocessed_data"), self.dataset_name[0]))
-        torch.save(dataset, self.dataset_name)
+        if not os.path.exists(os.path.join(os.path.join(os.getcwd(), "projects/preprocessed_data"))):
+            os.makedirs(os.path.join(os.path.join(os.getcwd(), "projects/preprocessed_data")))
+        torch.save(dataset, self.dataset_path)
 
 class InferDataset(Dataset):
     def __init__(self, grid):

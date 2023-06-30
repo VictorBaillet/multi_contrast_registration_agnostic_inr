@@ -42,6 +42,48 @@ def compute_jacobian_matrix(input_coords, output, add_identity=True):
     return jacobian_matrix
 
 stablestd = StableStd.apply
+class StableStd(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, tensor):
+        assert tensor.numel() > 1
+        ctx.tensor = tensor.detach()
+        res = torch.std(tensor).detach()
+        ctx.result = res.detach()
+        return res
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        tensor = ctx.tensor.detach()
+        result = ctx.result.detach()
+        e = 1e-6
+        assert tensor.numel() > 1
+        return (
+            (2.0 / (tensor.numel() - 1.0))
+            * (grad_output.detach() / (result.detach() * 2 + e))
+            * (tensor.detach() - tensor.mean().detach())
+        )
+
+
+def gradient(input_coords, output, device, grad_outputs=None):
+    """Compute the gradient of the output wrt the input."""
+
+    grad_outputs = torch.ones_like(output, device=device)
+    grad = torch.autograd.grad(
+        output, [input_coords], grad_outputs=grad_outputs, create_graph=True,
+    )[0]
+    return grad
+
+def compute_jacobian_matrix(input_coords, output, device, add_identity=True):
+    """Compute the Jacobian matrix of the output wrt the input."""
+
+    jacobian_matrix = torch.zeros(input_coords.shape[0], 3, 3, device=device)
+    for i in range(3):
+        jacobian_matrix[:, i, :] = gradient(input_coords, output[:, i], device)
+        if add_identity:
+            jacobian_matrix[:, i, i] += torch.ones_like(jacobian_matrix[:, i, i], device=device)
+    return jacobian_matrix
+
+stablestd = StableStd.apply
 
 def ncc(x1, x2, e=1e-10):
     assert x1.shape == x2.shape, "Inputs are not of equal shape"

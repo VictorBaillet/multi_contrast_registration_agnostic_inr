@@ -17,7 +17,7 @@ wandb/
 **/*.ipynb_checkpoints/
 
 #Ignore personnal experiments
-experiments/
+_experiments/
 
 #Ignore mri files
 **/*.nii.gz
