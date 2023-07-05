@@ -30,4 +30,4 @@ In the config.yaml files you can change, among others, the parameters of the mod
 
 ## Related google slide
 
-[2023-07-05 Progress report] (https://docs.google.com/presentation/d/14BUUlKPjN2aiMHQe6H01RsE6wDLntVs9Boq5mgTMVAI/edit#slide=id.p)
+[2023-07-05 Progress report](https://docs.google.com/presentation/d/14BUUlKPjN2aiMHQe6H01RsE6wDLntVs9Boq5mgTMVAI/edit#slide=id.p)
