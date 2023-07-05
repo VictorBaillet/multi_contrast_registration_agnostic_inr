@@ -24,3 +24,6 @@ The final loss is equal to $\alpha L2(INR \ \ \ T1w, T1w) + \beta MI(INR \ \ \ T
 
 In the config.yaml files you can change, among others, the parameters of the model and the weight of each loss.
 
+## Related google slides
+
+[2023-05-04 progress report](https://docs.google.com/presentation/d/1Mf8d2fuZPoIiBFSIMw2ye3mM0Mg1gzOGNzUxOgzWNEE/edit?usp=drive_link)
