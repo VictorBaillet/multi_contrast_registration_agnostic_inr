@@ -29,7 +29,7 @@ TRAINING:
       MI: 0.01
       BENDING_ENERGY: 5
       JACOBIAN: 0.5
-      HYPER_ELASTIC: 0.0005 
+      HYPER_ELASTIC: 0.05 
       NORM_LOSS: 0.0005
 
   # only one used at same time

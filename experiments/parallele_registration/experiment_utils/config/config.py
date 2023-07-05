@@ -43,8 +43,6 @@ def training_config(args):
 
     # Losses configuration
     lpips_loss, criterion, mi_criterion, cc_criterion, model_name = create_losses(config, config_dict, model_name, device)  
-    mi_buffer = np.zeros((4,1))
-    mi_mean = -1.0
 
     # optimizer
     if config.TRAINING.OPTIM == 'Adam':
@@ -64,7 +62,7 @@ def training_config(args):
 
     # Load Data
     dataset, train_dataloader, infer_dataloader, threshold = create_datasets(config)
-
+    
     fixed_image, rev_affine, min_coords, max_coords, difference_center_of_mass, format_im = compute_dataset_artifacts(dataset, device)
 
     training_args = {'config':config,

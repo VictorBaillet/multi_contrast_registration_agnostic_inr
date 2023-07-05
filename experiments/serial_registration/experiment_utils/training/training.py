@@ -27,7 +27,7 @@ def forward_iteration(model, model_registration, raw_data, labels, wandb_batch_d
                                                                                                                 registration_target,
                                                                                                                 difference_center_of_mass, format_im,
                                                                                                                 device)
-    weights = config.LOSS_WEIGHT
+    weights = config.TRAINING.LOSS_WEIGHT
     
     mse_loss = weights.MSE_C1*mse_loss_c1 + weights.MSE_C2*mse_loss_c2    
     
@@ -35,7 +35,7 @@ def forward_iteration(model, model_registration, raw_data, labels, wandb_batch_d
     registration_loss =+ (weights.CC*cc_loss_registration - weights.MI*mi_loss_registration)  
     if norm_loss > 1:
         registration_loss += weights.NORM_LOSS*norm_loss**2
-    if hyperlastic_loss < 100:
+    if hyper_elastic_loss < 100:
         registration_loss += weights.HYPER_ELASTIC*hyper_elastic_loss**2
         
     metrics = [('mse_loss' ,mse_loss), ('registration_loss' ,registration_loss), ('mse_loss_c1' ,mse_loss_c1), 
@@ -45,9 +45,9 @@ def forward_iteration(model, model_registration, raw_data, labels, wandb_batch_d
     
     wandb_batch_dict = update_wandb_batch_dict(metrics, wandb_batch_dict)
     
-    wandb_batch_dict.update({'x_registration': torch.mean(registration_target[:, 0]).item()})
-    wandb_batch_dict.update({'y_registration': torch.mean(registration_target[:, 1]).item()})
-    wandb_batch_dict.update({'z_registration': torch.mean(registration_target[:, 2]).item()})
+    wandb_batch_dict.update({'x_registration': torch.mean(registration_target[:, 0]).detach().item()})
+    wandb_batch_dict.update({'y_registration': torch.mean(registration_target[:, 1]).detach().item()})
+    wandb_batch_dict.update({'z_registration': torch.mean(registration_target[:, 2]).detach().item()})
     
     
     return registration_loss, mse_loss, wandb_batch_dict

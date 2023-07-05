@@ -11,7 +11,7 @@ from experiments.serial_registration.experiment_utils.config.utils_config import
 def training_config(args):
         # Init arguments 
     os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-    os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(map(str, args.cuda_visible_device))
+    #os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(map(str, args.cuda_visible_device))
     
     config, config_dict = process_config(args)
 
@@ -44,8 +44,6 @@ def training_config(args):
 
     # Losses configuration
     lpips_loss, criterion, mi_criterion, cc_criterion, model_name = create_losses(config, config_dict, model_name, device)  
-    mi_buffer = np.zeros((4,1))
-    mi_mean = -1.0
     
     # optimizer
     if config.TRAINING.OPTIM == 'Adam':

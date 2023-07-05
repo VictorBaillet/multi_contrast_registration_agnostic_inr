@@ -51,14 +51,14 @@ def create_losses(config, config_dict, model_name, device):
     model_name = f'{model_name}_NUML_{config.MODEL.NUM_LAYERS}_N_{config.MODEL.HIDDEN_CHANNELS}_D_{config.MODEL.DROPOUT}_'     
     
     # Loss
-    if config.TRAINING.LOSS == 'L1Loss':
+    if config.TRAINING.SIMILARITY_LOSS == 'L1Loss':
         criterion = nn.L1Loss()
-    elif config.TRAINING.LOSS == 'MSELoss':
+    elif config.TRAINING.SIMILARITY_LOSS == 'MSELoss':
         criterion = nn.MSELoss()
     else:
         raise ValueError('Loss function not defined!')
 
-    model_name = f'{model_name}_{config.TRAINING.LOSS}__{config.TRAINING.LOSS_MSE_C1}__{config.TRAINING.LOSS_MSE_C2}_'     
+    model_name = f'{model_name}_{config.TRAINING.SIMILARITY_LOSS}__{config.TRAINING.LOSS_WEIGHT.MSE_C1}__{config.TRAINING.LOSS_WEIGHT.MSE_C2}_'     
 
     # custom losses in addition to normal loss
     mi_criterion, cc_criterion = None, None

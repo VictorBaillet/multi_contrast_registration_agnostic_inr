@@ -7,6 +7,7 @@ import numpy as np
 
 import torch
 import wandb
+import gc
 
 sys.path.append(os.getcwd())
 
@@ -58,18 +59,17 @@ def main(args):
             # zero gradients
             optimizer.zero_grad()
             # backprop
-            loss.to(torch.float)
-            loss.to(device=device)
+            loss = loss.to(torch.float)
+            loss = loss.to(device=device)
             loss.backward()
             optimizer.step()
             # epoch loss
-            loss_batch += loss.item()
+            loss_batch += loss.detach().cpu().item()
             loss_epoch += loss_batch
             if args.logging:
                 wandb_batch_dict.update({'batch_loss': loss_batch})
                 wandb.log(wandb_batch_dict)  # update logs per batch
-                
-            
+                            
         
         # collect epoch stats
         epoch_time = time.time() - start

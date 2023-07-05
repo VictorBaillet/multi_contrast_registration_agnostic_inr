@@ -61,6 +61,10 @@ class MultiModalDataset(_BaseDataset):
         self.contrast1_GT_mask_str = "bodymask"#"brainmask"
         self.contrast2_GT_mask_str = "bodymask"#"brainmask"
         
+        #Cross correlation/Mutual information between gt images and lr images -- Computed in the config of each project.
+        self.gt_similarity = 0
+        self.lr_similarity = 0
+        
         
 
         self.dataset_name = (
@@ -209,6 +213,12 @@ class MultiModalDataset(_BaseDataset):
     
     def get_contrast2_data(self):
         return self.data_contrast2
+    
+    def get_gt_similarity(self):
+        return self.gt_similarity
+    
+    def get_lr_similarity(self):
+        return self.lr_similarity
 
     def _process(self):
 

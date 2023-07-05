@@ -85,7 +85,7 @@ def main(args):
             optimizer.step()
             optimizer_registration.step()
             # epoch loss
-            loss_batch += loss.item()
+            loss_batch += loss.detach().item()
             loss_epoch += loss_batch
             if args.logging:
                 wandb_batch_dict.update({'batch_loss': loss_batch})

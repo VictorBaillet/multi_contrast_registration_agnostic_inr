@@ -5,7 +5,7 @@ SETTINGS:
   NUM_WORKERS: 16
 
 DATASET:
-  SUBJECT_ID: 'sub-hamburg02-shifted' 
+  SUBJECT_ID: 'sub-hamburg02-reg' 
   LR_CONTRAST1: 'T1w_LR'  
   LR_CONTRAST2: 'T2w_LR' 
 

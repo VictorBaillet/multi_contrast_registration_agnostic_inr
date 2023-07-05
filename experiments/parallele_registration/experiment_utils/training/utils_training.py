@@ -35,15 +35,11 @@ def config_data(data, labels, device, config, input_mapper):
 def process_output(target, raw_data, threshold, fixed_image, rev_affine, max_coords, min_coords, format_im, config, device):
     mse_target1 = target[:threshold,0]  # contrast1 output for contrast1 coordinate
     mse_target2 = target[:,1]  # contrast2 output for contrast2 coordinate
-    registration_target = target[:,2:5].to(device=device)
+    registration_target = target[:,2:4].to(device=device)
+    registration_target = torch.cat((registration_target, torch.zeros_like(registration_target[:, 0:1])), dim=1)
     
-    if config.MI_CC.MI_USE_PRED:
-        mi_target1 = target[:,0:1]
-        mi_target2 = target[:,1:2]
-
-    elif config.TRAINING.USE_MI or config.TRAINING.USE_NMI or config.TRAINING.USE_CC:
-        mi_target1 = target[:len(contrast1_labels),0][contrast1_segm.squeeze()]  # contrast2 output for contrast1 coordinate !! ETRANGE !!
-        mi_target2 = target[len(contrast1_labels):,1][contrast2_segm.squeeze()]   # contrast1 output for contrast2 coordinate
+    mi_target1 = target[:,0:1]
+    mi_target2 = target[:,1:2]
     
     registration_target = torch.mul(registration_target, format_im)
     coord_temp = torch.add(registration_target, raw_data.to(device=device))
@@ -90,7 +86,7 @@ def compute_regularization_loss(raw_data, registration_target, difference_center
 
 def update_wandb_batch_dict(name_to_metrics, wandb_batch_dict):
     for metric in name_to_metrics:
-        wandb_batch_dict.update({metric[0]: metric[1].item()})
+        wandb_batch_dict.update({metric[0]: metric[1].detach().item()})
         
     return wandb_batch_dict
         

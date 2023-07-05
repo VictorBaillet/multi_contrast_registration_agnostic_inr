@@ -115,8 +115,6 @@ def get_image_coordinate_grid_nib(image: nibabel.Nifti1Image, slice=False):
     coordinates_arr = np.array(coordinates, dtype=np.float32)
     label_arr = np.array(label, dtype=np.float32)
 
-    # coordinates_arr_norm = scaler.fit_transform(coordinates_arr)
-
     def min_max_scale(X, s_min, s_max):
         x_min, x_max = X.min(), X.max()
         return (X - x_min)/(x_max - x_min)*(s_max - s_min) + s_min

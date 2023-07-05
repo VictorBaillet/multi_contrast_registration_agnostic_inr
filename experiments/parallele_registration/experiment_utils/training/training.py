@@ -20,7 +20,7 @@ def forward_iteration(model, raw_data, labels, wandb_batch_dict, epoch, model_na
                                                                                                                    rev_affine, max_coords,
                                                                                                                    min_coords, format_im, config, 
                                                                                                                    device)
-    reg_lr_multiplier = 0.001
+    reg_lr_multiplier = 0.01
     
     mse_loss_c1, mse_loss_c2, cc_loss_registration, mi_loss_registration = compute_similarity_loss(mse_target1, contrast1_labels,
                                                                                                    mse_target2, contrast2_interpolated,
@@ -29,15 +29,15 @@ def forward_iteration(model, raw_data, labels, wandb_batch_dict, epoch, model_na
     norm_loss, jacobian_loss, hyper_elastic_loss, bending_energy, norm_registration = compute_regularization_loss(raw_data, registration_target, 
                                                                                                                 difference_center_of_mass, format_im,
                                                                                                                 device)
-    weights = config.LOSS_WEIGHT
+    weights = config.TRAINING.LOSS_WEIGHT
     similarity_loss = weights.MSE_C1*mse_loss_c1 + weights.MSE_C2*mse_loss_c2
     similarity_loss += reg_lr_multiplier*(weights.CC*cc_loss_registration - 0*weights.MI*mi_loss_registration)
 
     regularization_loss = weights.BENDING_ENERGY*bending_energy + weights.JACOBIAN*jacobian_loss
     if norm_loss > 1:
         regularization_loss += reg_lr_multiplier*weights.NORM_LOSS*norm_loss**2
-    if hyperlastic_loss < 100:
-        regularization_loss += weights.HYPER_ELASTIC*hyper_elastic_loss**2
+    if hyper_elastic_loss < 100:
+        regularization_loss += weights.HYPER_ELASTIC*hyper_elastic_loss
         
     loss = similarity_loss + regularization_loss
     
@@ -48,10 +48,10 @@ def forward_iteration(model, raw_data, labels, wandb_batch_dict, epoch, model_na
     
     wandb_batch_dict = update_wandb_batch_dict(metrics, wandb_batch_dict)
     
-    wandb_batch_dict.update({'x_registration': torch.mean(registration_target[:, 0]).item()})
-    wandb_batch_dict.update({'y_registration': torch.mean(registration_target[:, 1]).item()})
-    wandb_batch_dict.update({'z_registration': torch.mean(registration_target[:, 2]).item()})
-                 
+    wandb_batch_dict.update({'x_registration': torch.mean(registration_target[:, 0]).detach().item()})
+    wandb_batch_dict.update({'y_registration': torch.mean(registration_target[:, 1]).detach().item()})
+    wandb_batch_dict.update({'z_registration': torch.mean(registration_target[:, 2]).detach().item()})
+                     
     return loss, wandb_batch_dict
 
 def inference_iteration(model, raw_data, config, device, input_mapper, fixed_image, min_coords, max_coords, rev_affine,
