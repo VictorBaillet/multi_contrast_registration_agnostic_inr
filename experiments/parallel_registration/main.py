@@ -15,8 +15,8 @@ from utils.config.config import parse_args
 from utils.visualization.visualization import generate_NIFTIs, compute_and_log_metrics
 from utils.utils import fast_trilinear_interpolation, center_of_mass
 
-from experiments.parallele_registration.experiment_utils.training.training import forward_iteration, inference_iteration
-from experiments.parallele_registration.experiment_utils.config.config import training_config 
+from experiments.parallel_registration.experiment_utils.training.training import forward_iteration, inference_iteration
+from experiments.parallel_registration.experiment_utils.config.config import training_config 
 
 
 import time
@@ -46,6 +46,7 @@ def main(args):
         model_path = os.path.join(weight_dir, model_name_epoch)
 
         loss_epoch = 0.0
+        cc_loss_registration_epoch = 0.0
         start = time.time()
         i = 0
         for batch_idx, (data, labels) in enumerate(train_dataloader): #(data, labels, segm) in enumerate(train_dataloader):
@@ -54,7 +55,7 @@ def main(args):
             data = data.requires_grad_(True)
             
             # Forward pass
-            loss, wandb_batch_dict = forward_iteration(model, data, labels, wandb_batch_dict, epoch, model_name, **training_args)
+            loss, cc_loss_registration, wandb_batch_dict = forward_iteration(model, data, labels, wandb_batch_dict, epoch, model_name, **training_args)
                     
             # zero gradients
             optimizer.zero_grad()
@@ -66,9 +67,14 @@ def main(args):
             # epoch loss
             loss_batch += loss.detach().cpu().item()
             loss_epoch += loss_batch
+            cc_loss_registration_epoch += cc_loss_registration.detach().item()
             if args.logging:
                 wandb_batch_dict.update({'batch_loss': loss_batch})
                 wandb.log(wandb_batch_dict)  # update logs per batch
+                
+            i += 1
+            if i > 10:
+                break
                             
         
         # collect epoch stats
@@ -79,6 +85,7 @@ def main(args):
             wandb_epoch_dict.update({'epoch_no': epoch})
             wandb_epoch_dict.update({'epoch_time': epoch_time})
             wandb_epoch_dict.update({'epoch_loss': loss_epoch})
+            wandb_epoch_dict.update({'cc_loss_registration_epoch': cc_loss_registration_epoch})
             wandb_epoch_dict.update({'lr': lr})
 
         if epoch == (config.TRAINING.EPOCHS -1):

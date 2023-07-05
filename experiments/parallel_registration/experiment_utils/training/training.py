@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from experiments.parallele_registration.experiment_utils.training.utils_training import config_data, process_output, compute_similarity_loss, compute_regularization_loss, update_wandb_batch_dict
+from experiments.parallel_registration.experiment_utils.training.utils_training import config_data, process_output, compute_similarity_loss, compute_regularization_loss, update_wandb_batch_dict
 from utils.loss_functions.utils_loss import compute_jacobian_matrix
     
 
@@ -52,7 +52,7 @@ def forward_iteration(model, raw_data, labels, wandb_batch_dict, epoch, model_na
     wandb_batch_dict.update({'y_registration': torch.mean(registration_target[:, 1]).detach().item()})
     wandb_batch_dict.update({'z_registration': torch.mean(registration_target[:, 2]).detach().item()})
                      
-    return loss, wandb_batch_dict
+    return loss, cc_loss_registration, wandb_batch_dict
 
 def inference_iteration(model, raw_data, config, device, input_mapper, fixed_image, min_coords, max_coords, rev_affine,
                         difference_center_of_mass, format_im, **kwargs):
@@ -74,11 +74,14 @@ def inference_iteration(model, raw_data, config, device, input_mapper, fixed_ima
     _, _, contrast2_interpolated, registration_target, _, _ = process_output(output, raw_data, 
                                                                              0, fixed_image, rev_affine, max_coords,
                                                                              min_coords, format_im, config, device)
+    
+    registration = output[:,2:4].to(device=device)
+    registration = torch.cat((registration, torch.zeros_like(registration[:, 0:1])), dim=1)
 
-    jac = compute_jacobian_matrix(raw_data, output[:, 2:5], device)
+    jac = compute_jacobian_matrix(raw_data, registration, device)
     jac_norm = torch.norm(jac, dim=(1, 2)).unsqueeze(1)
     #det = torch.det(jac) - 1
-    registration_norm = torch.norm(output[:, 2:5], dim=1).unsqueeze(1)
+    registration_norm = torch.norm(registration, dim=1).unsqueeze(1)
     contrast2_interpolated = contrast2_interpolated.unsqueeze(1)
         
     res = torch.concat([output, contrast2_interpolated, jac_norm, registration_norm], dim=1).cpu().detach().numpy() 

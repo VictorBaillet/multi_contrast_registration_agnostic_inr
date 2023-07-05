@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from utils.utils import center_of_mass
 from utils.dataset.dataset_utils import norm_grid
 from utils.dataset.dataset import MultiModalDataset, InferDataset
-from experiments.parallele_registration.model import MLPv1, MLPv2, Siren, WireReal, MLPregv1, MLPregv2, MLP_SIRENreg
+from experiments.parallel_registration.model import MLPv1, MLPv2, Siren, WireReal, MLPregv1, MLPregv2, MLP_SIRENreg
 
 
 def create_model(config, config_dict, device):
