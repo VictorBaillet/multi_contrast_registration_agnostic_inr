@@ -11,6 +11,28 @@ from skimage import filters
 
 
 def norm_grid(grid, xmin, xmax, smin=-1, smax=1):
+    """
+    Normalize grid values.
+
+    Parameters
+    ----------
+    grid : numpy.ndarray
+        Grid.
+    xmin : float
+        Minimum x value.
+    xmax : float
+        Maximum x value.
+    smin : float, optional
+        Minimum s value. (default: -1)
+    smax : float, optional
+        Maximum s value. (default: 1)
+
+    Returns
+    -------
+    numpy.ndarray
+        Normalized grid values.
+    """
+
     def min_max_scale(X, x_min, x_max, s_min, s_max):
         return (X - x_min)/(x_max - x_min)*(s_max - s_min) + s_min
 
@@ -19,6 +41,25 @@ def norm_grid(grid, xmin, xmax, smin=-1, smax=1):
 
 def get_crop_indexes(image1: nibabel.Nifti1Image, image2: nibabel.Nifti1Image,
                    image1_lr: nibabel.Nifti1Image, image2_lr: nibabel.Nifti1Image):
+    """
+    Get crop indexes of the largest shared field of view among the images.
+
+    Parameters
+    ----------
+    image1 : nibabel.Nifti1Image
+        Contrast 1.
+    image2 : nibabel.Nifti1Image
+        Contrast 2.
+    image1_lr : nibabel.Nifti1Image
+        Contrast 1 low resolution.
+    image2_lr : nibabel.Nifti1Image
+        Contrast 2 low resolution.
+
+    Returns
+    -------
+    tuple
+        Crop indexes.
+    """
     img1_affine = image1.affine
     (x1, y1, z1) = image1.shape
     
@@ -73,6 +114,23 @@ def get_crop_indexes(image1: nibabel.Nifti1Image, image2: nibabel.Nifti1Image,
     return img1_crop_index, img2_crop_index, img1_lr_crop_index, img2_lr_crop_index
 
 def coord_to_index(affine, coord_min, coord_max):
+    """
+    Convert coordinates to index.
+
+    Parameters
+    ----------
+    affine : array_like
+        Affine.
+    coord_min : list
+        Minimum coordinates.
+    coord_max : list
+        Maximum coordinates.
+
+    Returns
+    -------
+    list
+        Crop indexes.
+    """
     img_crop = []
     rev_affine = np.eye(4)
     rev_affine[:3,:3] = np.linalg.inv(affine[:3, :3])
@@ -86,6 +144,25 @@ def coord_to_index(affine, coord_min, coord_max):
 
 def crop_images(image1: nibabel.Nifti1Image, image2: nibabel.Nifti1Image,
                 image1_lr: nibabel.Nifti1Image, image2_lr: nibabel.Nifti1Image):
+    """
+    Crop images to the largest shared field of view.
+
+    Parameters
+    ----------
+    image1 : nibabel.Nifti1Image
+        Contrast 1.
+    image2 : nibabel.Nifti1Image
+        Contrast 2.
+    image1_lr : nibabel.Nifti1Image
+        Contrast 1 low resolution.
+    image2_lr : nibabel.Nifti1Image
+        Contrast 2 low resolution.
+
+    Returns
+    -------
+    tuple
+        Cropped images.
+    """
     img1_crop, img2_crop, img1_lr_crop, img2_lr_crop = get_crop_indexes(image1, image2, image1_lr, image2_lr)
     
     def slice_image(image, crop):
@@ -97,6 +174,19 @@ def crop_images(image1: nibabel.Nifti1Image, image2: nibabel.Nifti1Image,
     return slice_image(image1, img1_crop), slice_image(image2, img2_crop), slice_image(image1_lr, img1_lr_crop), slice_image(image2_lr, img2_lr_crop)
     
 def get_image_coordinate_grid_nib(image: nibabel.Nifti1Image, slice=False):
+    """
+    Get information anout the image coordinate grid.
+
+    Parameters
+    ----------
+    image : nibabel.Nifti1Image
+        Image.
+
+    Returns
+    -------
+    dict
+        Image coordinate grid information.
+    """
     img_header = image.header
     img_data = image.get_fdata()
     img_affine = image.affine
@@ -212,4 +302,6 @@ def calculate_laplacian(image: nibabel.Nifti1Image):
     scaled = scaler.fit_transform(laplacian.reshape(-1, 1)).reshape(img_data.shape)
 
     return scaled
+
+
 

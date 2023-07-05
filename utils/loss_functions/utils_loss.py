@@ -23,7 +23,23 @@ class StableStd(torch.autograd.Function):
         )
 
 def gradient(input_coords, output, grad_outputs=None):
-    """Compute the gradient of the output wrt the input."""
+    """
+    Compute the gradient of the output wrt the input.
+
+    Parameters
+    ----------
+    input_coords : torch.Tensor
+        Input coordinates.
+    output : torch.Tensor
+        Output.
+    grad_outputs : torch.Tensor, optional
+        Gradient outputs.
+
+    Returns
+    -------
+    torch.Tensor
+        Gradient.
+    """
 
     grad_outputs = torch.ones_like(output)
     grad = torch.autograd.grad(
@@ -32,7 +48,23 @@ def gradient(input_coords, output, grad_outputs=None):
     return grad
 
 def compute_jacobian_matrix(input_coords, output, add_identity=True):
-    """Compute the Jacobian matrix of the output wrt the input."""
+    """
+    Compute the Jacobian matrix of the output wrt the input.
+
+    Parameters
+    ----------
+    input_coords : torch.Tensor
+        Input coordinates.
+    output : torch.Tensor
+        Output.
+    add_identity : bool, optional
+        Whether to add identity matrix.
+
+    Returns
+    -------
+    torch.Tensor
+        Jacobian matrix.
+    """
 
     jacobian_matrix = torch.zeros(input_coords.shape[0], 3, 3)
     for i in range(3):
@@ -64,28 +96,26 @@ class StableStd(torch.autograd.Function):
         )
 
 
-def gradient(input_coords, output, device, grad_outputs=None):
-    """Compute the gradient of the output wrt the input."""
-
-    grad_outputs = torch.ones_like(output, device=device)
-    grad = torch.autograd.grad(
-        output, [input_coords], grad_outputs=grad_outputs, create_graph=True,
-    )[0]
-    return grad
-
-def compute_jacobian_matrix(input_coords, output, device, add_identity=True):
-    """Compute the Jacobian matrix of the output wrt the input."""
-
-    jacobian_matrix = torch.zeros(input_coords.shape[0], 3, 3, device=device)
-    for i in range(3):
-        jacobian_matrix[:, i, :] = gradient(input_coords, output[:, i], device)
-        if add_identity:
-            jacobian_matrix[:, i, i] += torch.ones_like(jacobian_matrix[:, i, i], device=device)
-    return jacobian_matrix
-
 stablestd = StableStd.apply
 
 def ncc(x1, x2, e=1e-10):
+    """
+    Compute the normalized cross-correlation between two tensors.
+
+    Parameters
+    ----------
+    x1 : torch.Tensor
+        First tensor.
+    x2 : torch.Tensor
+        Second tensor.
+    e : float, optional
+        A small value to avoid division by zero.
+
+    Returns
+    -------
+    torch.Tensor
+        Normalized cross-correlation.
+    """
     assert x1.shape == x2.shape, "Inputs are not of equal shape"
     cc = ((x1 - x1.mean()) * (x2 - x2.mean())).mean()
     std = stablestd(x1) * stablestd(x2)
@@ -93,6 +123,25 @@ def ncc(x1, x2, e=1e-10):
     return ncc
 
 def ncc_mask(x1, x2, mask, e=1e-10):  # TODO: calculate ncc per sample
+    """
+    Calculates the normalized cross-correlation (NCC) per sample.
+
+    Parameters
+    ----------
+    x1 : torch.Tensor
+        The first input tensor.
+    x2 : torch.Tensor
+        The second input tensor.
+    mask : torch.Tensor
+        The mask tensor.
+    e : float 
+        A small value to avoid division by zero.
+
+    Returns
+    -------
+    torch.Tensor
+        Normalized cross-correlation.
+    """
     assert x1.shape == x2.shape, "Inputs are not of equal shape"
     x1 = torch.masked_select(x1, mask)
     x2 = torch.masked_select(x2, mask)

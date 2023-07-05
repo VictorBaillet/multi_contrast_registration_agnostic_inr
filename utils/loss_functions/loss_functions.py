@@ -282,7 +282,25 @@ class LNCCLoss(nn.Module):
         return -torch.mean(lncc)
     
 def compute_jacobian_loss(input_coords, output, device, batch_size=None):
-    """Compute the jacobian regularization loss."""
+    """
+    Compute the jacobian regularization loss.
+
+    Parameters
+    ----------
+    input_coords : torch.Tensor
+        Input coordinates.
+    output : torch.Tensor
+        Output of the model.
+    device : str
+        Device.
+    batch_size : int, optional
+        Batch size.
+
+    Returns
+    -------
+    float
+        Jacobian regularization loss.
+    """
     # Compute Jacobian matrices
     jac = compute_jacobian_matrix(input_coords, output, device=device)
     
@@ -296,8 +314,31 @@ def compute_jacobian_loss(input_coords, output, device, batch_size=None):
 def compute_hyper_elastic_loss(
     input_coords, output, device, batch_size=None, alpha_l=1, alpha_a=1, alpha_v=1
 ):
-    """Compute the hyper-elastic regularization loss."""
+    """
+    Compute the hyper-elastic regularization loss.
 
+    Parameters
+    ----------
+    input_coords : torch.Tensor
+        Input coordinates.
+    output : torch.Tensor
+        Output of the model.
+    device : str
+        Device.
+    batch_size : int, optional
+        Batch size.
+    alpha_l : float, optional
+        Length coefficient.
+    alpha_a : float, optional
+        Area coefficient.
+    alpha_v : float, optional
+        Volume coefficient.
+
+    Returns
+    -------
+    float
+        Hyper-elastic regularization loss.
+    """
     grad_u = compute_jacobian_matrix(input_coords, output, device, add_identity=False)
     grad_y = grad_u
     """
@@ -349,7 +390,25 @@ def compute_hyper_elastic_loss(
     return loss / batch_size
 
 def compute_bending_energy(input_coords, output, device, batch_size=None):
-    """Compute the bending energy."""
+    """
+    Compute the bending energy.
+
+    Parameters
+    ----------
+    input_coords : torch.Tensor
+        Input coordinates.
+    output : torch.Tensor
+        Output of the model.
+    device : str
+        Training device.
+    batch_size : int, optional
+        Batch size.
+
+    Returns
+    -------
+    float
+        Bending energy.
+    """
 
     jacobian_matrix = compute_jacobian_matrix(input_coords, output, device, add_identity=False)
 
@@ -377,50 +436,3 @@ def compute_bending_energy(input_coords, output, device, batch_size=None):
     )
 
     return loss / batch_size
-
-
-def l2reg_loss(u):
-    """L2 regularisation loss"""
-    derives = []
-    ndim = u.size()[1]
-    for i in range(ndim):
-        derives += [finite_diff(u, dim=i)]
-    loss = torch.cat(derives, dim=1).pow(2).sum(dim=1).mean()
-    return loss
-
-
-def bending_energy_loss(u):
-    """Bending energy regularisation loss"""
-    derives = []
-    ndim = u.size()[1]
-    # 1st order
-    for i in range(ndim):
-        derives += [finite_diff(u, dim=i)]
-    # 2nd order
-    derives2 = []
-    for i in range(ndim):
-        derives2 += [finite_diff(derives[i], dim=i)]  # du2xx, du2yy, (du2zz)
-    derives2 += [math.sqrt(2) * finite_diff(derives[0], dim=1)]  # du2dxy
-    if ndim == 3:
-        derives2 += [math.sqrt(2) * finite_diff(derives[0], dim=2)]  # du2dxz
-        derives2 += [math.sqrt(2) * finite_diff(derives[1], dim=2)]  # du2dyz
-
-    assert len(derives2) == 2 * ndim
-    loss = torch.cat(derives2, dim=1).pow(2).sum(dim=1).mean()
-    return loss
-
-
-def total_variation_loss(img, edge_map=None):
-     if edge_map != None:
-          edge_map = 1.0 -edge_map.permute(0,2,3,1)
-     else:
-          edge_map = torch.ones(img.shape).cuda()
-     tv_h1 = (torch.pow(img[:,:,:,1:,:]-img[:,:,:,:-1,:], 2)*edge_map[:,:,:,1:,:]).sum()
-     tv_w1 = (torch.pow(img[:,:,1:,:,:]-img[:,:,:-1,:,:], 2)*edge_map[:,:,1:,:,:]).sum()
-     tv_d1 = (torch.pow(img[:,1:,:,:,:]-img[:,-1:,:,:,:], 2)*edge_map[:,1:,:,:,:]).sum()
-     
-     tv_h2 = (torch.pow(img[:,:,:,1:,:]-img[:,:,:,:-1,:], 2)*edge_map[:,:,:,:-1,:]).sum()
-     tv_w2 = (torch.pow(img[:,:,1:,:,:]-img[:,:,:-1,:,:], 2)*edge_map[:,:,:-1,:,:]).sum()
-     tv_d2 = (torch.pow(img[:,1:,:,:,:]-img[:,:-1,:,:,:], 2)*edge_map[:,:-1,:,:,:]).sum()
-
-     return 0.163*(tv_h1+tv_w1+tv_d1+tv_h2+tv_w2+tv_d2)/edge_map.sum()

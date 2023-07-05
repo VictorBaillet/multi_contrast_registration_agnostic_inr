@@ -84,7 +84,7 @@ def inference_iteration(model, raw_data, config, device, input_mapper, fixed_ima
     registration_norm = torch.norm(registration, dim=1).unsqueeze(1)
     contrast2_interpolated = contrast2_interpolated.unsqueeze(1)
         
-    res = torch.concat([output, contrast2_interpolated, jac_norm, registration_norm], dim=1).cpu().detach().numpy() 
+    res = torch.concat([output[:,:2], registration, contrast2_interpolated, jac_norm, registration_norm], dim=1).cpu().detach().numpy() 
     return res
 
 

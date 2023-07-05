@@ -121,6 +121,7 @@ def generate_NIFTIs(dataset, model_intensities, image_dir, model_name_epoch, epo
         image = wandb.Image(im_registration_norm, caption=f"{config.DATASET.LR_CONTRAST2} registration norm map")
         wandb_epoch_dict.update({f"{config.DATASET.LR_CONTRAST2} registration norm map": image})
         
+        
     return pred_contrast1, pred_contrast2, gt_contrast1, gt_contrast2, wandb_epoch_dict
 
 

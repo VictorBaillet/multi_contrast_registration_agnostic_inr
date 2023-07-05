@@ -31,24 +31,25 @@ class _BaseDataset(Dataset):
         raise NotImplementedError
 
 class MultiModalDataset(_BaseDataset):
-    r""" Dataset of view1 and view2 T2w image sequence of the same patient.
-    These could be e.g. an view1 and view2 T2w brain image,
-    an view1 and view2 spine image, etc.
-    However, both images must be registered to one another - the Dataset does not do this.
-    Args:
-        root (string): Root directory where the dataset should be saved.
-        transform (callable, optional): A function/transform that takes in an
-            :obj:`torch.data.Data` object and returns a transformed
-            version. The data object will be transformed before every access.
-            (default: :obj:`None`)
+    """
+    Dataset of contrast 1 and contrast 2 image sequence of the same patient.
+    These could be e.g. T1w and T2w brain images,
+    an T1w and T2w spine image, etc.
+    Parameters
+    ----------
+    image_dir : str
+        Image directory.
+    name : str
+        Dataset name.
+    subject_id : str
+        Subject ID.
+    contrast1_LR_str : str
+        Contrast 1 LR string.
+    contrast2_LR_str : str
+        Contrast 2 LR string.
     """
 
-    def __init__(self, image_dir: str="", name = "BrainLesionDataset",
-                subject_id: str = "123456", 
-                contrast1_LR_str: str= 'flair3d_LR', 
-                contrast2_LR_str: str='dir_LR',
-  
-                transform = None, target_transform = None):
+    def __init__(self, image_dir, name, subject_id, contrast1_LR_str, contrast2_LR_str):
         super(MultiModalDataset, self).__init__(image_dir)
         self.dataset_name = name
         self.subject_id = subject_id
@@ -141,9 +142,6 @@ class MultiModalDataset(_BaseDataset):
             self.data = []
             self.label = []
             self._process()
-
-        self.transform = transform
-        self.target_transform = target_transform
 
     def __len__(self):
         return self.len

@@ -5,7 +5,7 @@ import numpy as np
 import wandb
 
 from utils.config.config import create_losses, process_config, create_input_mapper 
-from experiments.parallele_registration.experiment_utils.config.utils_config import create_model, create_datasets, compute_dataset_artifacts
+from experiments.parallel_registration.experiment_utils.config.utils_config import create_model, create_datasets, compute_dataset_artifacts
 
 
 def training_config(args):

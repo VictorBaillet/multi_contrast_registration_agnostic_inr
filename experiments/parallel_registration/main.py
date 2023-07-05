@@ -72,10 +72,7 @@ def main(args):
                 wandb_batch_dict.update({'batch_loss': loss_batch})
                 wandb.log(wandb_batch_dict)  # update logs per batch
                 
-            i += 1
-            if i > 10:
-                break
-                            
+  
         
         # collect epoch stats
         epoch_time = time.time() - start
