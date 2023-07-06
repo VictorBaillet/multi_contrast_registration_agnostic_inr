@@ -13,10 +13,10 @@ def config_data(data, labels, mask, device, config, input_mapper):
     contrast1_data = data[contrast1_idx,:]
 
     contrast2_idx = (labels[:,1] != -1.0)
-    contrast2_labels = labels[contrast1_idx,1]
+    contrast2_labels = labels[contrast2_idx,1]
     contrast2_labels = contrast2_labels.reshape(-1,1).to(device=device)
-    contrast2_segm = None #segm[contrast1_idx,:]
-    contrast2_data = data[contrast1_idx,:]
+    contrast2_segm = None #segm[contrast2_idx,:]
+    contrast2_data = data[contrast2_idx,:]
     
     #data = torch.cat((contrast1_data,contrast2_data), dim=0)
     data = contrast1_data
