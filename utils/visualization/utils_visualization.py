@@ -84,15 +84,14 @@ def compute_metrics(gt, pred, mask, lpips_loss, device):
         mask = mask.float().cpu().numpy()
 
     assert mask.max() == 1.0, 'Mask Format incorrect.'
-    #assert mask.min() == 0.0, 'Mask Format incorrect.'
 
-    gt -= gt.min()#gt[mask == 1].min()
+    gt -= gt[mask == 1].min()
     gt /= gt.max()
-    #gt *= mask
+    gt *= mask
 
-    pred -= pred.min()#[mask == 1].min()
+    pred -= pred[mask == 1].min()
     pred /= pred.max()
-    #pred *= mask
+    pred *= mask
 
     ssim = structural_similarity(gt, pred, data_range=1)
     psnr = peak_signal_noise_ratio(gt, pred, data_range=1)

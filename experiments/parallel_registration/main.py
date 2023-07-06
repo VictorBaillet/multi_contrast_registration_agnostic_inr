@@ -49,13 +49,13 @@ def main(args):
         cc_loss_registration_epoch = 0.0
         start = time.time()
         i = 0
-        for batch_idx, (data, labels) in enumerate(train_dataloader): #(data, labels, segm) in enumerate(train_dataloader):
+        for batch_idx, (data, labels, mask) in enumerate(train_dataloader): #(data, labels, segm) in enumerate(train_dataloader):
             loss_batch = 0
             wandb_batch_dict = {}
             data = data.requires_grad_(True)
             
             # Forward pass
-            loss, cc_loss_registration, wandb_batch_dict = forward_iteration(model, data, labels, wandb_batch_dict, epoch, model_name, **training_args)
+            loss, cc_loss_registration, wandb_batch_dict = forward_iteration(model, data, labels, mask, wandb_batch_dict, epoch, model_name, **training_args)
                     
             # zero gradients
             optimizer.zero_grad()
@@ -71,6 +71,7 @@ def main(args):
             if args.logging:
                 wandb_batch_dict.update({'batch_loss': loss_batch})
                 wandb.log(wandb_batch_dict)  # update logs per batch
+                
                 
   
         
@@ -99,8 +100,8 @@ def main(args):
         # start inference
         start = time.time()
         
-        x_dim_c1, y_dim_c1, z_dim_c1 = dataset.get_contrast1_dim()
-        x_dim_c2, y_dim_c2, z_dim_c2 = dataset.get_contrast2_dim()
+        x_dim_c1, y_dim_c1, z_dim_c1 = dataset.get_dim(contrast=1, resolution='gt')
+        x_dim_c2, y_dim_c2, z_dim_c2 = dataset.get_dim(contrast=2, resolution='gt')
 
         out = np.zeros((int(x_dim_c1*y_dim_c1*z_dim_c1 + x_dim_c2*y_dim_c2*z_dim_c2), 8))
         model_inference.to(device)
@@ -125,16 +126,14 @@ def main(args):
                                                                                                        model_name_epoch, 
                                                                                                        epoch, wandb_epoch_dict, config, args)
 
-        mask_c1 = np.zeros_like(gt_contrast1)
-        mask_c1[mask_c1 == 0] = 1
-        mask_c2 = np.zeros_like(gt_contrast2)
-        mask_c2[mask_c2 == 0] = 1
+        mask_c1 = dataset.get_mask(contrast=1, resolution='gt')
+        mask_c2 = dataset.get_mask(contrast=2, resolution='gt')
 
         wandb_epoch_dict = compute_and_log_metrics(gt_contrast1, gt_contrast2, pred_contrast1, pred_contrast2, mask_c1, mask_c2, 
                                                    training_args['lpips_loss'], device, wandb_epoch_dict, args)
 
-
-        wandb.log(wandb_epoch_dict)  # update logs per epoch
+        if args.logging:
+            wandb.log(wandb_epoch_dict)  # update logs per epoch
 
 
 if __name__ == '__main__':

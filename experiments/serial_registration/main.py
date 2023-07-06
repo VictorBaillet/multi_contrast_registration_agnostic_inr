@@ -55,7 +55,7 @@ def main(args):
         loss_epoch = 0.0
         start = time.time()
         i = 0
-        for batch_idx, (data, labels) in enumerate(train_dataloader): #(data, labels, segm) in enumerate(train_dataloader):
+        for batch_idx, (data, labels, mask) in enumerate(train_dataloader): #(data, labels, segm) in enumerate(train_dataloader):
             loss_batch = 0
             wandb_batch_dict = {}
             data = data.requires_grad_(True)
@@ -122,8 +122,8 @@ def main(args):
         # start inference
         start = time.time()
         
-        x_dim_c1, y_dim_c1, z_dim_c1 = dataset.get_contrast1_dim()
-        x_dim_c2, y_dim_c2, z_dim_c2 = dataset.get_contrast2_dim()
+        x_dim_c1, y_dim_c1, z_dim_c1 = dataset.get_dim(contrast=1, resolution='gt')
+        x_dim_c2, y_dim_c2, z_dim_c2 = dataset.get_dim(contrast=2, resolution='gt')
 
         out = np.zeros((int(x_dim_c1*y_dim_c1*z_dim_c1 + x_dim_c2*y_dim_c2*z_dim_c2), 8))
         model_inference.to(device)
@@ -175,8 +175,8 @@ def main(args):
         wandb_epoch_dict = compute_and_log_metrics(gt_contrast1, gt_contrast2, pred_contrast1, pred_contrast2, mask_c1, mask_c2, 
                                                    training_args['lpips_loss'], device, wandb_epoch_dict, args)
 
-
-        wandb.log(wandb_epoch_dict)  # update logs per epoch
+        if args.logging:
+            wandb.log(wandb_epoch_dict)  # update logs per epoch
 
 
 if __name__ == '__main__':

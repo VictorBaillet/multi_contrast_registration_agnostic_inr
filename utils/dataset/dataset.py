@@ -59,13 +59,12 @@ class MultiModalDataset(_BaseDataset):
         self.contrast2_LR_mask_str = contrast2_LR_str.replace("LR", "mask_LR")
         self.contrast1_GT_str = contrast1_LR_str.replace("_LR", "")
         self.contrast2_GT_str = contrast2_LR_str.replace("_LR", "")
-        self.contrast1_GT_mask_str = "bodymask"#"brainmask"
-        self.contrast2_GT_mask_str = "bodymask"#"brainmask"
+        self.contrast1_GT_mask_str = "bodymask"
+        self.contrast2_GT_mask_str = "bodymask"
         
         #Cross correlation/Mutual information between gt images and lr images -- Computed in the config of each project.
         self.gt_similarity = 0
         self.lr_similarity = 0
-        
         
 
         self.dataset_name = (
@@ -107,34 +106,16 @@ class MultiModalDataset(_BaseDataset):
         self.gt_contrast1_mask = gt_contrast1_mask
         self.gt_contrast2_mask = gt_contrast2_mask
         
-        #gt_contrast2_dict = get_image_coordinate_grid_nib(nib.load(str(self.gt_contrast2)))
-        #self.gt_constrast2_img_data = gt_contrast2_dict["image_data"]
-        
         self.dataset_path = os.path.join(os.path.join(os.getcwd(), "projects/preprocessed_data"), self.dataset_name)
         
         if os.path.isfile(self.dataset_path):
             print("Dataset available : ", self.dataset_name)
             dataset = torch.load(self.dataset_path)
             self.data = dataset["data"]
-            self.data_contrast1 = dataset["data_contrast1"]
-            self.data_contrast2 = dataset["data_contrast2"]
-            self.labels_contrast1 = dataset["labels_contrast1"]
-            self.labels_contrast2 = dataset["labels_contrast2"]
-            self.dim_lr_contrast1 = dataset["dim_lr_contrast1"]
-            self.dim_lr_contrast2 = dataset["dim_lr_contrast2"]
             self.label = dataset["label"]
             self.mask = dataset["mask"]
-            self.affine_contrast1 = dataset["affine_contrast1"]
-            self.affine_contrast2 = dataset["affine_contrast2"]
-            self.dim_contrast1 = dataset["dim_contrast1"]
-            self.dim_contrast2 = dataset["dim_contrast2"]
             self.len = dataset["len"]
-            self.gt_contrast1 = dataset["gt_contrast1"]
-            self.gt_contrast2 = dataset["gt_contrast2"]
-            self.gt_contrast1_mask = dataset["gt_contrast1_mask"]
-            self.gt_contrast2_mask = dataset["gt_contrast2_mask"]
-            self.coordinates_contrast1 = dataset["coordinates_contrast1"]
-            self.coordinates_contrast2 = dataset["coordinates_contrast2"]
+            self.contrasts_data = dataset["contrasts_data"]
             print("skipping preprocessing.")
 
         else:
@@ -149,74 +130,8 @@ class MultiModalDataset(_BaseDataset):
     def __getitem__(self, idx) -> Tuple[dict, dict]:
         data = self.data[idx]
         label = self.label[idx]
-        #mask = self.mask[idx]
-        return data, label #, mask
-
-    def get_intensities(self):
-        return self.label
-    
-    def get_contrast1_intensities(self):
-        return self.labels_contrast1
-    
-    def get_contrast2_intensities(self):
-        return self.labels_contrast2
-    
-    def get_mask(self):
-        return self.mask
-
-    def get_contrast1_coordinates(self):
-        return self.coordinates_contrast1
-    
-    def get_contrast2_coordinates(self):
-        return self.coordinates_contrast2
-
-    def get_contrast1_affine(self):
-        return self.affine_contrast1
-    
-    def get_contrast2_affine(self):
-        return self.affine_contrast2
-    
-    def get_contrast1_dim(self):
-        return self.dim_contrast1
-    
-    def get_contrast2_dim(self):
-        return self.dim_contrast2
-    
-    def get_contrast1_lr_dim(self):
-        return self.dim_lr_contrast1
-    
-    def get_contrast2_lr_dim(self):
-        return self.dim_lr_contrast2
-    
-    def get_contrast2_gt(self):
-        return self.gt_contrast2
-        
-    def get_contrast1_gt(self):
-        return self.gt_contrast1
-        
-    def get_contrast2_gt_mask(self):
-        return self.gt_contrast2_mask
-    
-    def get_contrast1_gt_mask(self):
-        return self.gt_contrast1_mask
-    
-    def get_contrast2_gt_image_data(self):
-        return self.gt_constrast2_img_data
-    
-    def get_data(self):
-        return self.data
-    
-    def get_contrast1_data(self):
-        return self.data_contrast1
-    
-    def get_contrast2_data(self):
-        return self.data_contrast2
-    
-    def get_gt_similarity(self):
-        return self.gt_similarity
-    
-    def get_lr_similarity(self):
-        return self.lr_similarity
+        mask = self.mask[idx]
+        return data, label, mask
 
     def _process(self):
 
@@ -237,110 +152,111 @@ class MultiModalDataset(_BaseDataset):
         gt_contrast1_image = nib.load(str(self.gt_contrast1))
         gt_contrast2_image = nib.load(str(self.gt_contrast2))
         
+        lr_contrast1_mask = nib.load(str(self.lr_contrast1_mask))
+        lr_contrast2_mask = nib.load(str(self.lr_contrast2_mask))
+        gt_contrast1_mask = nib.load(str(self.gt_contrast1_mask))
+        gt_contrast2_mask = nib.load(str(self.gt_contrast2_mask))
+        
         gt_contrast1_cropped, gt_contrast2_cropped, lr_contrast1_cropped, lr_contrast2_cropped = crop_images(gt_contrast1_image, gt_contrast2_image,
                                                                                                              lr_contrast1_image, lr_contrast2_image)
         
-        contrast1_dict = get_image_coordinate_grid_nib(lr_contrast1_cropped)
-        contrast2_dict = get_image_coordinate_grid_nib(lr_contrast2_cropped)
+        gt_contrast1_mask, gt_contrast2_mask, lr_contrast1_mask, lr_contrast2_mask = crop_images(gt_contrast1_mask, gt_contrast2_mask,
+                                                                                                 lr_contrast1_mask, lr_contrast2_mask)
         
-        contrast1_mask_dict = get_image_coordinate_grid_nib(nib.load(str(self.lr_contrast1_mask)))
-        contrast2_mask_dict = get_image_coordinate_grid_nib(nib.load(str(self.lr_contrast2_mask)))
+        self.lr_contrast1_dict = get_image_coordinate_grid_nib(lr_contrast1_cropped)
+        self.lr_contrast2_dict = get_image_coordinate_grid_nib(lr_contrast2_cropped)
+        
+        self.lr_contrast1_dict["mask"] = get_image_coordinate_grid_nib(lr_contrast1_mask)["intensity_norm"].bool()
+        self.lr_contrast2_dict["mask"] = get_image_coordinate_grid_nib(lr_contrast2_mask)["intensity_norm"].bool()
 
-        data_contrast2 = contrast2_dict["coordinates"]
-        data_contrast1 = contrast1_dict["coordinates"]
+        data_contrast1, labels_contrast1 = self.lr_contrast1_dict["coordinates"], self.lr_contrast1_dict["intensity_norm"]
+        data_contrast2, labels_contrast2 = self.lr_contrast2_dict["coordinates"], self.lr_contrast2_dict["intensity_norm"]
                 
         min1, max1 = data_contrast1.min(), data_contrast1.max()
         min2, max2 = data_contrast2.min(), data_contrast2.max()
 
         min_c, max_c = np.min(np.array([min1, min2])), np.max(np.array([max1, max2]))
 
-        data_contrast1 = norm_grid(data_contrast1, xmin=min_c, xmax=max_c)
-        data_contrast2 = norm_grid(data_contrast2, xmin=min_c, xmax=max_c)
-                
-
-        self.data_contrast1 = data_contrast1
-        self.data_contrast2 = data_contrast2
-
-        labels_contrast2 = contrast2_dict["intensity_norm"]
-        labels_contrast1 = contrast1_dict["intensity_norm"]
-        
-        self.labels_contrast1 = labels_contrast1
-        self.labels_contrast2 = labels_contrast2
-        
-        self.dim_lr_contrast1 = contrast1_dict["dim"]
-        self.dim_lr_contrast2 = contrast2_dict["dim"]
-        
-        
-        mask_contrast2 = contrast2_mask_dict["intensity_norm"].bool()
-        mask_contrast1 = contrast1_mask_dict["intensity_norm"].bool()
-        
+        self.lr_contrast1_dict["coordinates"] = norm_grid(data_contrast1, xmin=min_c, xmax=max_c)
+        self.lr_contrast2_dict["coordinates"] = norm_grid(data_contrast2, xmin=min_c, xmax=max_c)
+                                
         labels_contrast1_stack = torch.cat((labels_contrast1, torch.ones(labels_contrast1.shape)*-1), dim=1)
         labels_contrast2_stack = torch.cat((torch.ones(labels_contrast2.shape)*-1, labels_contrast2), dim=1)
         
         # assemble the data and labels
         self.data = torch.cat((data_contrast1, data_contrast2), dim=0)
         self.label = torch.cat((labels_contrast1_stack, labels_contrast2_stack), dim=0)
-        self.mask = torch.cat((mask_contrast1, mask_contrast2), dim=0)
+        self.mask = torch.cat((self.lr_contrast1_dict["mask"], self.lr_contrast2_dict["mask"]), dim=0)
         self.len = len(self.label)
 
         # store the GT images to compute SSIM and other metrics!
-        gt_contrast1_dict = get_image_coordinate_grid_nib(gt_contrast1_cropped)
-        gt_contrast2_dict = get_image_coordinate_grid_nib(gt_contrast2_cropped)
+        self.gt_contrast1_dict = get_image_coordinate_grid_nib(gt_contrast1_cropped)
+        self.gt_contrast2_dict = get_image_coordinate_grid_nib(gt_contrast2_cropped)
 
-        self.gt_contrast2 = gt_contrast2_dict["intensity_norm"]
-        self.gt_contrast1 = gt_contrast1_dict["intensity_norm"]
-        
-        self.gt_constrast2_img_data = gt_contrast2_dict["image_data"]
-
-        self.gt_contrast2_mask = torch.tensor(nib.load(self.gt_contrast2_mask).get_fdata()).bool()
-        self.gt_contrast1_mask = torch.tensor(nib.load(self.gt_contrast1_mask).get_fdata()).bool()
-
-        self.coordinates_contrast1 = gt_contrast1_dict["coordinates"]
-        self.coordinates_contrast2 = gt_contrast2_dict["coordinates"]
-        
-        self.coordinates_contrast1 = norm_grid(self.coordinates_contrast1, xmin=min_c, xmax=max_c)
-        self.coordinates_contrast2 = norm_grid(self.coordinates_contrast2, xmin=min_c, xmax=max_c)
+        self.coordinates_contrast1 = self.gt_contrast1_dict["coordinates"]
+        self.coordinates_contrast2 = self.gt_contrast2_dict["coordinates"]
                 
-        self.gt_contrast2 = self.gt_contrast2
-        self.gt_contrast1 = self.gt_contrast1
+        self.gt_contrast1_dict['mask'] = torch.tensor(gt_contrast1_mask.get_fdata()).bool()
+        self.gt_contrast2_dict['mask'] = torch.tensor(gt_contrast2_mask.get_fdata()).bool()
         
-        self.gt_contrast1_mask = self.gt_contrast1_mask
-        self.gt_contrast2_mask = self.gt_contrast2_mask
+        self.gt_contrast1_dict["coordinates"] = norm_grid(self.coordinates_contrast1, xmin=min_c, xmax=max_c)
+        self.gt_contrast2_dict["coordinates"] = norm_grid(self.coordinates_contrast2, xmin=min_c, xmax=max_c)
         
-        self.coordinates_contrast1 = self.coordinates_contrast1
-        self.coordinates_contrast2 = self.coordinates_contrast2
-
-        self.affine_contrast1 = gt_contrast1_dict["affine"]
-        self.affine_contrast2 = gt_contrast2_dict["affine"]
-        self.dim_contrast1 = gt_contrast1_dict["dim"]
-        self.dim_contrast2 = gt_contrast2_dict["dim"]
+        self.contrasts_data = {'lr_contrast1': self.lr_contrast1_dict,
+                               'lr_contrast2': self.lr_contrast2_dict,
+                               'gt_contrast1': self.gt_contrast1_dict,
+                               'gt_contrast2': self.gt_contrast2_dict}
 
         # store to avoid preprocessing
         dataset = {
             'len': self.len,
             'data': self.data,
-            'data_contrast1': data_contrast1,
-            'data_contrast2': data_contrast2,
-            'labels_contrast2': labels_contrast2,
-            'labels_contrast1': labels_contrast1,
-            'dim_lr_contrast1': self.dim_lr_contrast1,
-            'dim_lr_contrast2': self.dim_lr_contrast2,
             'mask': self.mask,
             'label': self.label,
-            'affine_contrast1': self.affine_contrast1,
-            'affine_contrast2': self.affine_contrast2,
-            'gt_contrast1': self.gt_contrast1,
-            'gt_contrast2': self.gt_contrast2,
-            'gt_contrast1_mask': self.gt_contrast1_mask,
-            'gt_contrast2_mask': self.gt_contrast2_mask,
-            'dim_contrast1': self.dim_contrast1,
-            'dim_contrast2': self.dim_contrast2,
-            'coordinates_contrast1': self.coordinates_contrast1,
-            'coordinates_contrast2': self.coordinates_contrast2,
-        }
+            'contrasts_data': self.contrasts_data}
+        
         if not os.path.exists(os.path.join(os.path.join(os.getcwd(), "projects/preprocessed_data"))):
             os.makedirs(os.path.join(os.path.join(os.getcwd(), "projects/preprocessed_data")))
         torch.save(dataset, self.dataset_path)
+        
+    def get_intensities(self):
+        return self.label
+    
+    def get_mask(self):
+        return self.mask
+    
+    def get_data(self):
+        return self.data
+    
+    def get_intensities(self, contrast, resolution):
+        image_name = f'{resolution}_contrast{contrast}'
+        return self.contrasts_data[image_name]["intensity_norm"]
+
+    def get_coordinates(self, contrast, resolution):
+        image_name = f'{resolution}_contrast{contrast}'
+        return self.contrasts_data[image_name]["coordinates"]
+
+    def get_affine(self, contrast, resolution):
+        image_name = f'{resolution}_contrast{contrast}'
+        return self.contrasts_data[image_name]["affine"]
+    
+    def get_dim(self, contrast, resolution):
+        image_name = f'{resolution}_contrast{contrast}'
+        return self.contrasts_data[image_name]["dim"]
+
+    def get_mask(self, contrast, resolution):
+        image_name = f'{resolution}_contrast{contrast}'
+        return self.contrasts_data[image_name]['mask']
+
+    def get_image_data(self, contrast, resolution):
+        image_name = f'{resolution}_contrast{contrast}'
+        return self.contrasts_data[image_name]['img_data']
+    
+    def get_gt_similarity(self):
+        return self.gt_similarity
+    
+    def get_lr_similarity(self):
+        return self.lr_similarity
 
 class InferDataset(Dataset):
     def __init__(self, grid):
@@ -354,12 +270,4 @@ class InferDataset(Dataset):
         data = self.grid[idx]
         return data
 
-if __name__ == '__main__':
-
-    dataset = MultiModalDataset(
-                image_dir='miccai',
-                name='miccai_dataset',          
-                )
-
-    print("Passed.")
     

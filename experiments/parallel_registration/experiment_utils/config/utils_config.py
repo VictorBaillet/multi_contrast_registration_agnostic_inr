@@ -65,10 +65,10 @@ def create_datasets(config):
                                  shuffle=config.TRAINING.SHUFFELING, 
                                  num_workers=config.SETTINGS.NUM_WORKERS)
     
-    mgrid_contrast1 = dataset.get_contrast1_coordinates()
-    mgrid_contrast2 = dataset.get_contrast2_coordinates()
-    mgrid_affine_contrast1 = dataset.get_contrast1_affine()
-    mgrid_affine_contrast2 = dataset.get_contrast2_affine()
+    mgrid_contrast1 = dataset.get_coordinates(contrast=1, resolution='gt')
+    mgrid_contrast2 = dataset.get_coordinates(contrast=2, resolution='gt')
+    mgrid_affine_contrast1 = dataset.get_affine(contrast=1, resolution='gt')
+    mgrid_affine_contrast2 = dataset.get_affine(contrast=2, resolution='gt')
 
     infer_data_contrast = InferDataset(torch.cat((mgrid_contrast1, mgrid_contrast2), dim=0))
     threshold = len(mgrid_contrast1)
@@ -82,13 +82,13 @@ def create_datasets(config):
 
 def compute_dataset_artifacts(dataset, device):
     # Dimensions of the two images
-    x_dim_c1, y_dim_c1, z_dim_c1 = dataset.get_contrast1_dim()
-    x_dim_c2, y_dim_c2, z_dim_c2 = dataset.get_contrast2_dim()
-    x_dim_c2_lr, y_dim_c2_lr, z_dim_c2_lr = dataset.get_contrast2_lr_dim()
-    x_dim_c1_lr, y_dim_c1_lr, z_dim_c1_lr = dataset.get_contrast1_lr_dim()
+    x_dim_c1, y_dim_c1, z_dim_c1 = dataset.get_dim(contrast=1, resolution='gt')
+    x_dim_c2, y_dim_c2, z_dim_c2 = dataset.get_dim(contrast=2, resolution='gt')
+    x_dim_c1_lr, y_dim_c1_lr, z_dim_c1_lr = dataset.get_dim(contrast=1, resolution='lr')
+    x_dim_c2_lr, y_dim_c2_lr, z_dim_c2_lr = dataset.get_dim(contrast=2, resolution='lr')
 
     # Image to be registered
-    fixed_image_unprocessed = dataset.get_contrast2_intensities().reshape((x_dim_c2_lr, y_dim_c2_lr, z_dim_c2_lr))
+    fixed_image_unprocessed = dataset.get_intensities(contrast=2, resolution='gt').reshape((x_dim_c2_lr, y_dim_c2_lr, z_dim_c2_lr))
     # Créer un nouveau tableau y de taille (n+1), (m+1), (p+1) rempli de zéros
     n, m, p = fixed_image_unprocessed.shape
     fixed_image = torch.zeros((n+2, m+2, p+2))
@@ -96,16 +96,16 @@ def compute_dataset_artifacts(dataset, device):
     # Copier les valeurs de x dans y sauf pour les indices i=0 ou n, j=0 ou m et k=0 ou p
     fixed_image[1:-1, 1:-1, 1:-1] = fixed_image_unprocessed
 
-    moving_image = dataset.get_contrast1_intensities().reshape((x_dim_c1_lr, y_dim_c1_lr, z_dim_c1_lr))
+    moving_image = dataset.get_intensities(contrast=1, resolution='gt').reshape((x_dim_c1_lr, y_dim_c1_lr, z_dim_c1_lr))
 
     
     # Maximum and minimum coordinates of the training points (used in fast_trilinear_interpolation)
-    coord_c2 = dataset.get_contrast2_data().cpu().numpy()
-    affine = dataset.get_contrast2_affine().cpu().numpy()
+    coord_c2 = dataset.get_coordinates(contrast=2, resolution='gt').cpu().numpy()
+    affine = dataset.get_affine(contrast=2, resolution='gt').cpu().numpy()
     rev_affine = np.linalg.inv(affine[:3,:3])
     res = rev_affine @ coord_c2.T
     res = res.T
-    affine1 = dataset.get_contrast1_affine().cpu().numpy()
+    affine1 = dataset.get_affine(contrast=1, resolution='gt').cpu().numpy()
     rev_affine1 = np.linalg.inv(affine1)
 
     center_of_mass_c2 = nib.affines.apply_affine(affine, center_of_mass(fixed_image.cpu().numpy()))

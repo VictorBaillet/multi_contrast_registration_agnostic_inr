@@ -22,7 +22,7 @@ class StableStd(torch.autograd.Function):
             * (tensor.detach() - tensor.mean().detach())
         )
 
-def gradient(input_coords, output, grad_outputs=None):
+def gradient(input_coords, output, device, grad_outputs=None):
     """
     Compute the gradient of the output wrt the input.
 
@@ -41,13 +41,13 @@ def gradient(input_coords, output, grad_outputs=None):
         Gradient.
     """
 
-    grad_outputs = torch.ones_like(output)
+    grad_outputs = torch.ones_like(output, device=device)
     grad = torch.autograd.grad(
         output, [input_coords], grad_outputs=grad_outputs, create_graph=True,
     )[0]
     return grad
 
-def compute_jacobian_matrix(input_coords, output, add_identity=True):
+def compute_jacobian_matrix(input_coords, output, device, add_identity=True):
     """
     Compute the Jacobian matrix of the output wrt the input.
 
@@ -66,11 +66,11 @@ def compute_jacobian_matrix(input_coords, output, add_identity=True):
         Jacobian matrix.
     """
 
-    jacobian_matrix = torch.zeros(input_coords.shape[0], 3, 3)
+    jacobian_matrix = torch.zeros(input_coords.shape[0], 3, 3, device=device)
     for i in range(3):
-        jacobian_matrix[:, i, :] = gradient(input_coords, output[:, i])
+        jacobian_matrix[:, i, :] = gradient(input_coords, output[:, i], device=device)
         if add_identity:
-            jacobian_matrix[:, i, i] += torch.ones_like(jacobian_matrix[:, i, i])
+            jacobian_matrix[:, i, i] += torch.ones_like(jacobian_matrix[:, i, i], device=device)
     return jacobian_matrix
 
 stablestd = StableStd.apply

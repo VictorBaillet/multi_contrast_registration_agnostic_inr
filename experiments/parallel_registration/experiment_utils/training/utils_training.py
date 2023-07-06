@@ -5,18 +5,18 @@ from utils.utils import fast_trilinear_interpolation
 from utils.loss_functions.loss_functions import compute_jacobian_loss, compute_hyper_elastic_loss, compute_bending_energy
 
 
-def config_data(data, labels, device, config, input_mapper):
-    contrast1_mask = (labels[:,0] != -1.0)
-    contrast1_labels = labels[contrast1_mask,0]
+def config_data(data, labels, mask, device, config, input_mapper):
+    contrast1_idx = (labels[:,0] != -1.0)
+    contrast1_labels = labels[contrast1_idx,0]
     contrast1_labels = contrast1_labels.reshape(-1,1).to(device=device)
-    contrast1_segm = None #segm[contrast1_mask,:]
-    contrast1_data = data[contrast1_mask,:]
+    contrast1_segm = None #segm[contrast1_idx,:]
+    contrast1_data = data[contrast1_idx,:]
 
-    contrast2_mask = (labels[:,1] != -1.0)
-    contrast2_labels = labels[contrast2_mask,1]
+    contrast2_idx = (labels[:,1] != -1.0)
+    contrast2_labels = labels[contrast1_idx,1]
     contrast2_labels = contrast2_labels.reshape(-1,1).to(device=device)
-    contrast2_segm = None #segm[contrast2_mask,:]
-    contrast2_data = data[contrast2_mask,:]
+    contrast2_segm = None #segm[contrast1_idx,:]
+    contrast2_data = data[contrast1_idx,:]
     
     #data = torch.cat((contrast1_data,contrast2_data), dim=0)
     data = contrast1_data

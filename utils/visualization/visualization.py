@@ -6,9 +6,9 @@ from utils.visualization.utils_visualization import show_slices_gt, show_slices_
 
 
 def generate_NIFTIs(dataset, model_intensities, image_dir, model_name_epoch, epoch, wandb_epoch_dict, config, args):
-    x_dim_c1, y_dim_c1, z_dim_c1 = dataset.get_contrast1_dim()
-    x_dim_c2, y_dim_c2, z_dim_c2 = dataset.get_contrast2_dim()
-    threshold = len(dataset.get_contrast1_coordinates())
+    x_dim_c1, y_dim_c1, z_dim_c1 = dataset.get_dim(contrast=1, resolution='gt')
+    x_dim_c2, y_dim_c2, z_dim_c2 = dataset.get_dim(contrast=2, resolution='gt')
+    threshold = len(dataset.get_coordinates(contrast=1, resolution='gt'))
     model_intensities_contrast1 = model_intensities[:threshold,0] # contrast1
     model_intensities_contrast2 = model_intensities[threshold:,1] # contrast2
     model_intensities_contrast2_interpolated = model_intensities[threshold:,5] # contrast2
@@ -32,8 +32,8 @@ def generate_NIFTIs(dataset, model_intensities, image_dir, model_name_epoch, epo
     model_registration_jac_det = model_registration_jac_det.reshape((x_dim_c2, y_dim_c2, z_dim_c2))#.cpu().numpy()
     model_registration_norm = model_registration_norm.reshape((x_dim_c2, y_dim_c2, z_dim_c2))
 
-    gt_contrast1 = dataset.get_contrast1_gt().reshape((x_dim_c1, y_dim_c1, z_dim_c1)).cpu().numpy()
-    gt_contrast2 = dataset.get_contrast2_gt().reshape((x_dim_c2, y_dim_c2, z_dim_c2)).cpu().numpy()
+    gt_contrast1 = dataset.get_intensities(contrast=1, resolution='gt').reshape((x_dim_c1, y_dim_c1, z_dim_c1)).cpu().numpy()
+    gt_contrast2 = dataset.get_intensities(contrast=2, resolution='gt').reshape((x_dim_c2, y_dim_c2, z_dim_c2)).cpu().numpy()
 
     label_arr = np.array(gt_contrast1, dtype=np.float32)
     gt_contrast1= np.clip(gt_contrast1.reshape(-1, 1), 0, 1).reshape((x_dim_c1, y_dim_c1, z_dim_c1))
@@ -44,8 +44,8 @@ def generate_NIFTIs(dataset, model_intensities, image_dir, model_name_epoch, epo
     pred_contrast1 = img_contrast1
     pred_contrast2 = img_contrast2
     
-    mgrid_affine_contrast1 = dataset.get_contrast1_affine()
-    mgrid_affine_contrast2 = dataset.get_contrast2_affine()
+    mgrid_affine_contrast1 = dataset.get_affine(contrast=1, resolution='gt')
+    mgrid_affine_contrast2 = dataset.get_affine(contrast=2, resolution='gt')
     affine_c1 = np.array(mgrid_affine_contrast1)
     affine_c2 = np.array(mgrid_affine_contrast2)
     

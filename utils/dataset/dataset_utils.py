@@ -205,55 +205,18 @@ def get_image_coordinate_grid_nib(image: nibabel.Nifti1Image, slice=False):
     coordinates_arr = np.array(coordinates, dtype=np.float32)
     label_arr = np.array(label, dtype=np.float32)
 
-    def min_max_scale(X, s_min, s_max):
-        x_min, x_max = X.min(), X.max()
-        return (X - x_min)/(x_max - x_min)*(s_max - s_min) + s_min
-
-    coordinates_arr_norm = min_max_scale(X=coordinates_arr, s_min=-1, s_max=1)
-
     scaler = MinMaxScaler()
 
     label_arr_norm = scaler.fit_transform(label_arr.reshape(-1, 1))
 
-    if slice:
-
-        coordinates_arr = coordinates_arr.reshape(x,y,z,3)
-        label_arr = label_arr.reshape(x,y,z,1)
-
-        coordinates_arr = coordinates_arr[:,:,::3,:].reshape(-1,3)
-        label_arr = label_arr[:,:,::3,:].reshape(-1,1)
-            
-        coordinates_arr_norm = coordinates_arr_norm.reshape(x,y,z,3)
-        label_arr_norm = label_arr_norm.reshape(x,y,z,1)
-
-        coordinates_arr_norm = coordinates_arr_norm[:,:,::3,:].reshape(-1,3)
-        label_arr_norm = label_arr_norm[:,:,::3,:].reshape(-1,1)
-            
-    # normalize intensities and coordinates
-    # image_grid_norm = torch.tensor(image_grid, dtype=torch.float32)
-    # image_data_norm = torch.tensor(label_arr_norm, dtype=torch.float32).view(-1,1)
-
-    x_min, y_min, z_min = nib.affines.apply_affine(img_affine, np.array(([0, 0, 0])))
-    x_max, y_max, z_max = nib.affines.apply_affine(img_affine, np.array(([x, y, z])))
-
-    boundaries = dict()
-    boundaries['xmin'] = x_min
-    boundaries['ymin'] = y_min
-    boundaries['zmin'] = z_min
-    boundaries['xmax'] = x_max
-    boundaries['ymax'] = y_max
-    boundaries['zmax'] = z_max
 
     image_dict = {
-        'boundaries': boundaries,
         'affine': torch.tensor(img_affine),
-        'origin': torch.tensor(np.array([0])),
         'spacing': torch.tensor(np.array(img_header["pixdim"][1:4])),
         'dim': torch.tensor(np.array([x, y, z])),
         'intensity': torch.tensor(label_arr, dtype=torch.float32).view(-1, 1),
         'intensity_norm': torch.tensor(label_arr_norm, dtype=torch.float32).view(-1, 1),
         'coordinates': torch.tensor(coordinates_arr, dtype=torch.float32),
-        'coordinates_norm': torch.tensor(coordinates_arr_norm, dtype=torch.float32),
         'image_data' : img_data,
     }
     return image_dict

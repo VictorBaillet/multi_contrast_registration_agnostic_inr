@@ -4,7 +4,7 @@ from experiments.parallel_registration.experiment_utils.training.utils_training 
 from utils.loss_functions.utils_loss import compute_jacobian_matrix
     
 
-def forward_iteration(model, raw_data, labels, wandb_batch_dict, epoch, model_name, config, device, input_mapper, 
+def forward_iteration(model, raw_data, labels, mask, wandb_batch_dict, epoch, model_name, config, device, input_mapper, 
                       fixed_image, criterion, mi_criterion, cc_criterion, min_coords, max_coords, rev_affine,
                       difference_center_of_mass, format_im, **kwargs):
     
