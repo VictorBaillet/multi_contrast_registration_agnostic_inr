@@ -112,7 +112,7 @@ class MultiModalDataset(_BaseDataset):
             print("Dataset available : ", self.dataset_name)
             dataset = torch.load(self.dataset_path)
             self.data = dataset["data"]
-            self.label = dataset["label"]
+            self.labels = dataset["labels"]
             self.mask = dataset["mask"]
             self.len = dataset["len"]
             self.contrasts_data = dataset["contrasts_data"]
@@ -121,7 +121,7 @@ class MultiModalDataset(_BaseDataset):
         else:
             self.len = 0
             self.data = []
-            self.label = []
+            self.labels = []
             self._process()
 
     def __len__(self):
@@ -129,7 +129,7 @@ class MultiModalDataset(_BaseDataset):
 
     def __getitem__(self, idx) -> Tuple[dict, dict]:
         data = self.data[idx]
-        label = self.label[idx]
+        label = self.labels[idx]
         mask = self.mask[idx]
         return data, label, mask
 
@@ -166,8 +166,8 @@ class MultiModalDataset(_BaseDataset):
         self.lr_contrast1_dict = get_image_coordinate_grid_nib(lr_contrast1_cropped)
         self.lr_contrast2_dict = get_image_coordinate_grid_nib(lr_contrast2_cropped)
         
-        self.lr_contrast1_dict["mask"] = get_image_coordinate_grid_nib(lr_contrast1_mask)["intensity_norm"].bool()
-        self.lr_contrast2_dict["mask"] = get_image_coordinate_grid_nib(lr_contrast2_mask)["intensity_norm"].bool()
+        self.lr_contrast1_dict["mask"] = get_image_coordinate_grid_nib(lr_contrast1_mask)["intensity"].bool()
+        self.lr_contrast2_dict["mask"] = get_image_coordinate_grid_nib(lr_contrast2_mask)["intensity"].bool()
 
         data_contrast1, labels_contrast1 = self.lr_contrast1_dict["coordinates"], self.lr_contrast1_dict["intensity_norm"]
         data_contrast2, labels_contrast2 = self.lr_contrast2_dict["coordinates"], self.lr_contrast2_dict["intensity_norm"]
@@ -177,17 +177,20 @@ class MultiModalDataset(_BaseDataset):
 
         min_c, max_c = np.min(np.array([min1, min2])), np.max(np.array([max1, max2]))
 
-        self.lr_contrast1_dict["coordinates"] = norm_grid(data_contrast1, xmin=min_c, xmax=max_c)
-        self.lr_contrast2_dict["coordinates"] = norm_grid(data_contrast2, xmin=min_c, xmax=max_c)
+        data_contrast1 = norm_grid(data_contrast1, xmin=min_c, xmax=max_c)
+        data_contrast2 = norm_grid(data_contrast2, xmin=min_c, xmax=max_c)
+        
+        self.lr_contrast1_dict["coordinates"] = data_contrast1
+        self.lr_contrast2_dict["coordinates"] = data_contrast2
                                 
         labels_contrast1_stack = torch.cat((labels_contrast1, torch.ones(labels_contrast1.shape)*-1), dim=1)
         labels_contrast2_stack = torch.cat((torch.ones(labels_contrast2.shape)*-1, labels_contrast2), dim=1)
         
         # assemble the data and labels
         self.data = torch.cat((data_contrast1, data_contrast2), dim=0)
-        self.label = torch.cat((labels_contrast1_stack, labels_contrast2_stack), dim=0)
+        self.labels = torch.cat((labels_contrast1_stack, labels_contrast2_stack), dim=0)
         self.mask = torch.cat((self.lr_contrast1_dict["mask"], self.lr_contrast2_dict["mask"]), dim=0)
-        self.len = len(self.label)
+        self.len = len(self.labels)
 
         # store the GT images to compute SSIM and other metrics!
         self.gt_contrast1_dict = get_image_coordinate_grid_nib(gt_contrast1_cropped)
@@ -212,15 +215,15 @@ class MultiModalDataset(_BaseDataset):
             'len': self.len,
             'data': self.data,
             'mask': self.mask,
-            'label': self.label,
+            'labels': self.labels,
             'contrasts_data': self.contrasts_data}
         
         if not os.path.exists(os.path.join(os.path.join(os.getcwd(), "projects/preprocessed_data"))):
             os.makedirs(os.path.join(os.path.join(os.getcwd(), "projects/preprocessed_data")))
         torch.save(dataset, self.dataset_path)
         
-    def get_intensities(self):
-        return self.label
+    def get_labels(self):
+        return self.labels
     
     def get_mask(self):
         return self.mask

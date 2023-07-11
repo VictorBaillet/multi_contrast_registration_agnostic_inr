@@ -7,7 +7,6 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from utils.utils import dict2obj
 from utils.dataset.dataset import MultiModalDataset, InferDataset
 from utils.loss_functions.loss_functions import MILossGaussian, NMI, NCC
 from utils.config.utils_config import input_mapping, get_string
@@ -31,27 +30,13 @@ def process_config(args):
     """
     with open(args.config) as f:
         config_dict = yaml.load(f, Loader=yaml.FullLoader)
-    config = dict2obj(config_dict)
+        
+    if args.logging:
+        config_dict["SETTINGS"]["LOGGING"] = True
+        
     
-    # we bypass lr, epoch and batch_size if we provide them via arparse
-    if args.lr != None:
-        config.TRAINING.LR = args.lr
-        config_dict["TRAINING"]["LR"] = args.lr
     
-    if args.batch_size != None:
-        config.TRAINING.BATCH_SIZE = args.batch_size
-        config_dict["TRAINING"]["BATCH_SIZE"] = args.batch_size
-    
-    if args.epochs != None:
-        config.TRAINING.EPOCHS = args.epochs
-        config_dict["TRAINING"]["EPOCHS"] = args.epochs
-
-    # dataset specific
-    if args.subject_id != None:
-        config.DATASET.SUBJECT_ID = args.subject_id
-        config_dict["DATASET"]["SUBJECT_ID"] = args.subject_id
-    
-    return config, config_dict
+    return config_dict
 
 def create_input_mapper(config, device):
     """
@@ -142,16 +127,7 @@ def parse_args():
         Arguments.
     """
     parser = argparse.ArgumentParser(description='Train Neural Implicit Function for a single scan.')
+    parser.add_argument('--experiment_name', type=str, help='Experiment name', default=None)    
     parser.add_argument('--config', default='config.yaml', help='config file (.yaml) containing the hyper-parameters for training.')
     parser.add_argument('--logging', action='store_true')
-    parser.add_argument('--cuda_visible_device', nargs='*', type=int, default=[0], help="GPU ID following PCI order.")
-
-    parser.add_argument('--early_stopping', action='store_true')
-    parser.add_argument('--batch_size', type=int, default=None)
-    parser.add_argument('--epochs', type=int, default=None)
-    parser.add_argument('--lr', type=float, default=None)
-
-    # patient
-    parser.add_argument('--subject_id', type=str, default=None)
-    parser.add_argument('--experiment_no', type=int, default=None)
     return parser.parse_args()

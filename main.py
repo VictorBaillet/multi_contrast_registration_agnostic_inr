@@ -1,30 +1,30 @@
 import os 
 import sys
 import argparse
+from utils.config.config import parse_args, process_config 
+from experiments.parallel_registration.parallel_registration import parallel_registration_irn
+from experiments.serial_registration.serial_registration import serial_registration_irn
+
+"""
+Rajouter methodes : .save et .load
+"""
 
 
 def main():
-    import os
-
-    parser = argparse.ArgumentParser(description='script description')
-    parser.add_argument('--experiment_name', type=str, help='Experiment name')
-    parser.add_argument('--config', type=str, help='Config file name')
-    parser.add_argument('--logging', action='store_true')
-    
-    args = parser.parse_args()
-    
-    project_folder = os.path.join('experiments', args.experiment_name)
+    args = parse_args()
+    experiment_name = args.experiment_name
+    project_folder = os.path.join('experiments', experiment_name)
     config_folder = os.path.join(project_folder, 'configs')
-    config_file = os.path.join(config_folder, args.config)
-
-    for filename in os.listdir(project_folder):
-        if filename.endswith('.py') and filename.startswith('main'):
-            if args.logging:
-                os.system(f'python {os.path.join(project_folder, filename)} --config {config_file} --logging')
-            else:
-                os.system(f'python {os.path.join(project_folder, filename)} --config {config_file}')
-
-
-
+    args.config = os.path.join(config_folder, args.config)
+    
+    config_dict = process_config(args)
+    
+    if experiment_name == "parallel_registration":
+        net = parallel_registration_irn(config_dict)
+    if experiment_name == "serial_registration":
+        net = serial_registration_irn(config_dict)
+        
+    net.fit()
+    
 if __name__ == '__main__':
     main()

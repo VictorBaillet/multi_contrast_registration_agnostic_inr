@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from utils.utils import fast_trilinear_interpolation
-from experiments.serial_registration.experiment_utils.training.utils_training import config_data, process_output, compute_similarity_loss, compute_regularization_loss, update_wandb_batch_dict
+from experiments.serial_registration.experiment_utils.utils_training import config_data, process_output, compute_similarity_loss, compute_regularization_loss, update_wandb_batch_dict
 
 from utils.loss_functions.utils_loss import compute_jacobian_matrix
     
@@ -52,7 +52,7 @@ def forward_iteration(model, model_registration, raw_data, labels, wandb_batch_d
     
     return registration_loss, mse_loss, wandb_batch_dict
 
-def inference_iteration_contrast2(model, model_registration, raw_data, config, args, device, fixed_image, input_mapper,
+def inference_iteration_contrast2(model, model_registration, raw_data, config, device, fixed_image, input_mapper,
                                   min_coords, max_coords, rev_affine, format_im, **kwargs):
     
     if torch.cuda.is_available():

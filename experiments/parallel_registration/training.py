@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from experiments.parallel_registration.experiment_utils.training.utils_training import config_data, process_output, compute_similarity_loss, compute_regularization_loss, update_wandb_batch_dict
+from experiments.parallel_registration.experiment_utils.utils_training import config_data, process_output, compute_similarity_loss, compute_regularization_loss, update_wandb_batch_dict
 from utils.loss_functions.utils_loss import compute_jacobian_matrix
     
 
@@ -8,7 +8,9 @@ def forward_iteration(model, raw_data, labels, mask, wandb_batch_dict, epoch, mo
                       fixed_image, criterion, mi_criterion, cc_criterion, min_coords, max_coords, rev_affine,
                       difference_center_of_mass, format_im, **kwargs):
     
-    raw_data, data, contrast1_labels, contrast2_labels = config_data(raw_data, labels, device, config, input_mapper)    
+    raw_data, data, contrast1_labels, contrast2_labels, contrast1_mask, contrast2_mask = config_data(raw_data, labels, mask, 
+                                                                                                     device, config, input_mapper)
+    
     target = model(data)
     
     if config.MODEL.USE_SIREN or config.MODEL.USE_WIRE_REAL: 
@@ -20,9 +22,9 @@ def forward_iteration(model, raw_data, labels, mask, wandb_batch_dict, epoch, mo
                                                                                                                    rev_affine, max_coords,
                                                                                                                    min_coords, format_im, config, 
                                                                                                                    device)
-    reg_lr_multiplier = 0.01
+    reg_lr_multiplier = 1
     
-    mse_loss_c1, mse_loss_c2, cc_loss_registration, mi_loss_registration = compute_similarity_loss(mse_target1, contrast1_labels,
+    mse_loss_c1, mse_loss_c2, cc_loss_registration, mi_loss_registration = compute_similarity_loss(mse_target1, contrast1_labels, contrast1_mask,
                                                                                                    mse_target2, contrast2_interpolated,
                                                                                                    criterion, mi_criterion, cc_criterion)
     

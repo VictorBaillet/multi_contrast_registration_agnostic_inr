@@ -122,7 +122,7 @@ class MLPregv1(nn.Module):
         self.fc_registration = nn.Linear(self.hidden_size, self.hidden_size//2)
         self.out_contrast1 = nn.Linear(self.hidden_size//2, self.output_size//2)
         self.out_contrast2 = nn.Linear(self.hidden_size//2, self.output_size//2)
-        self.out_registration = nn.Linear(self.hidden_size//2, 2)
+        self.out_registration = nn.Linear(self.hidden_size//2, 3)
         self.out_x_registration = nn.Linear(1, 1)
         nn.init.zeros_(self.out_x_registration.weight)
         nn.init.zeros_(self.out_x_registration.bias)
@@ -150,9 +150,9 @@ class MLPregv1(nn.Module):
         x3 = self.out_registration(F.relu(self.fc_registration(x3)))
         x_reg = self.out_x_registration(x3[:,0:1])
         y_reg = self.out_y_registration(x3[:,1:2])
-        #z_reg = self.out_z_registration(x3[:,2:3])
-        #return torch.cat((x1,x2,x_reg,y_reg,z_reg),dim=1)
-        return torch.cat((x1,x2,x_reg, y_reg),dim=1)
+        z_reg = self.out_z_registration(x3[:,2:3])
+        return torch.cat((x1,x2,x_reg,y_reg,z_reg),dim=1)
+        #return torch.cat((x1,x2,x_reg, y_reg),dim=1)
 
 class MLPregv2(nn.Module):
     def __init__(self, input_size=3, hidden_size=512, output_size=1, dropout=0, num_layers=5, num_layers_head=3):

@@ -11,18 +11,20 @@ def config_data(data, labels, mask, device, config, input_mapper):
     contrast1_labels = contrast1_labels.reshape(-1,1).to(device=device)
     contrast1_segm = None #segm[contrast1_idx,:]
     contrast1_data = data[contrast1_idx,:]
+    contrast1_mask = mask[contrast1_idx].squeeze()
 
     contrast2_idx = (labels[:,1] != -1.0)
     contrast2_labels = labels[contrast2_idx,1]
     contrast2_labels = contrast2_labels.reshape(-1,1).to(device=device)
     contrast2_segm = None #segm[contrast2_idx,:]
-    contrast2_data = data[contrast2_idx,:]
-    
+    contrast2_mask = mask[contrast2_idx].squeeze()
+
     #data = torch.cat((contrast1_data,contrast2_data), dim=0)
     data = contrast1_data
     
     if torch.cuda.is_available():
         data, contrast1_labels, contrast2_labels  = data.to(device=device), contrast1_labels.to(device=device), contrast2_labels.to(device=device)
+        contrast1_mask, contrast2_mask = contrast1_mask.to(device=device), contrast2_mask.to(device=device)
     
     raw_data = data
     if config.MODEL.USE_FF:
@@ -30,14 +32,14 @@ def config_data(data, labels, mask, device, config, input_mapper):
     elif config.MODEL.USE_SIREN:
         data = data*np.pi
         
-    return raw_data, data, contrast1_labels, contrast2_labels
+    return raw_data, data, contrast1_labels, contrast2_labels, contrast1_mask, contrast2_mask
 
 def process_output(target, raw_data, threshold, fixed_image, rev_affine, max_coords, min_coords, format_im, config, device):
     mse_target1 = target[:threshold,0]  # contrast1 output for contrast1 coordinate
     mse_target2 = target[:,1]  # contrast2 output for contrast2 coordinate
-    registration_target = target[:,2:4].to(device=device)
-    registration_target = torch.cat((registration_target, torch.zeros_like(registration_target[:, 0:1])), dim=1)
-    
+    #registration_target = target[:,2:4].to(device=device)
+    #registration_target = torch.cat((registration_target, torch.zeros_like(registration_target[:, 0:1])), dim=1)
+    registration_target = target[:,2:5].to(device=device)
     mi_target1 = target[:,0:1]
     mi_target2 = target[:,1:2]
     
@@ -57,12 +59,12 @@ def process_output(target, raw_data, threshold, fixed_image, rev_affine, max_coo
     
     return mse_target1, mse_target2, contrast2_interpolated, registration_target, mi_target1, mi_target2
 
-def compute_similarity_loss(mse_target1, contrast1_labels, mse_target2, contrast2_interpolated, criterion, mi_criterion, cc_criterion):
+def compute_similarity_loss(mse_target1, contrast1_labels, contrast1_mask, mse_target2, contrast2_interpolated, 
+                            criterion, mi_criterion, cc_criterion):
     
     mse_loss_c1 = criterion(mse_target1, contrast1_labels.squeeze()) 
 
     mse_loss_c2 = criterion(mse_target2, contrast2_interpolated.squeeze().detach())  
-    
     cc_loss_registration = cc_criterion(contrast1_labels.unsqueeze(0).unsqueeze(0).detach(),
                                         contrast2_interpolated.unsqueeze(0).unsqueeze(0).unsqueeze(-1))
     

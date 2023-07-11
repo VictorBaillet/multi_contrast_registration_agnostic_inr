@@ -6,7 +6,8 @@ from torch.utils.data import DataLoader
 from utils.utils import center_of_mass
 from utils.dataset.dataset_utils import norm_grid
 from utils.dataset.dataset import MultiModalDataset, InferDataset
-from experiments.serial_registration.model import MLPv2, Siren, WireReal
+from experiments.parallel_registration.networks import MLPv1, MLPv2, Siren, WireReal, MLPregv1, MLPregv2, MLP_SIRENreg
+
 
 def create_model(config, config_dict, device):
     # Model Selection
@@ -39,21 +40,17 @@ def create_model(config, config_dict, device):
     
     else:
         if config.MODEL.USE_TWO_HEADS:
-            model = MLPv2(input_size=input_size, output_size=output_size, hidden_size=config.MODEL.HIDDEN_CHANNELS,
+            model = MLPregv1(input_size=input_size, output_size=output_size, hidden_size=config.MODEL.HIDDEN_CHANNELS,
                     num_layers=config.MODEL.NUM_LAYERS, dropout=config.MODEL.DROPOUT)
-            model_name = f'{model_name}_MLPv2_'
+            model_name = f'{model_name}_MLPregv1_'
         else:
             model = MLPv1(input_size=input_size, output_size=output_size, hidden_size=config.MODEL.HIDDEN_CHANNELS,
                         num_layers=config.MODEL.NUM_LAYERS, dropout=config.MODEL.DROPOUT)
             model_name = f'{model_name}_MLP2_'
-            
-    model_registration = Siren(in_features=3, hidden_features=128, hidden_layers=2, out_features=3)
-    model_registration = model_registration.to(device=device)
 
     model.to(device)
     
-    return model, model_registration, model_name
-
+    return model, model_name
 
 def create_datasets(config):
     dataset = MultiModalDataset(
@@ -74,28 +71,18 @@ def create_datasets(config):
     mgrid_affine_contrast2 = dataset.get_affine(contrast=2, resolution='gt')
 
     infer_data_contrast = InferDataset(torch.cat((mgrid_contrast1, mgrid_contrast2), dim=0))
-    infer_data_contrast1 = InferDataset(mgrid_contrast1)
-    infer_data_contrast2 = InferDataset(mgrid_contrast2)
     threshold = len(mgrid_contrast1)
     infer_dataloader = torch.utils.data.DataLoader(infer_data_contrast,
                                                batch_size=10000,
                                                shuffle=False,
                                                num_workers=config.SETTINGS.NUM_WORKERS)
     
-    infer_dataloader_contrast1 = torch.utils.data.DataLoader(infer_data_contrast1,
-                                               batch_size=10000,
-                                               shuffle=False,
-                                               num_workers=config.SETTINGS.NUM_WORKERS)
-    infer_dataloader_contrast2 = torch.utils.data.DataLoader(infer_data_contrast2,
-                                               batch_size=10000,
-                                               shuffle=False,
-                                               num_workers=config.SETTINGS.NUM_WORKERS)
     
-    return dataset, train_dataloader, infer_dataloader, threshold, infer_dataloader_contrast1, infer_dataloader_contrast2
+    return dataset, train_dataloader, infer_dataloader, threshold
 
 def compute_dataset_artifacts(dataset, device):
     # Dimensions of the two images
-    x_dim_c1, y_dim_c1, z_dim_c1 = dataset.get_dim(contrast=1, resolution='gt') 
+    x_dim_c1, y_dim_c1, z_dim_c1 = dataset.get_dim(contrast=1, resolution='gt')
     x_dim_c2, y_dim_c2, z_dim_c2 = dataset.get_dim(contrast=2, resolution='gt')
     x_dim_c1_lr, y_dim_c1_lr, z_dim_c1_lr = dataset.get_dim(contrast=1, resolution='lr')
     x_dim_c2_lr, y_dim_c2_lr, z_dim_c2_lr = dataset.get_dim(contrast=2, resolution='lr')
@@ -139,5 +126,3 @@ def compute_dataset_artifacts(dataset, device):
                           torch.tensor(min_coords, device=device, dtype=float))
     
     return fixed_image, rev_affine, min_coords, max_coords, difference_center_of_mass, format_im 
-
-    
