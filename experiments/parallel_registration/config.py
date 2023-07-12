@@ -9,7 +9,7 @@ from utils.config.config import create_losses, process_config, create_input_mapp
 from experiments.parallel_registration.experiment_utils.utils_config import create_model, create_datasets, compute_dataset_artifacts
 
 
-def training_config(config_dict):
+def training_config(config_dict, verbose=True):
     # Init arguments 
     os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
     #os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(map(str, args.cuda_visible_device))
@@ -19,13 +19,6 @@ def training_config(config_dict):
     if config.SETTINGS.LOGGING:
         wandb.login()
         wandb.init(config=config_dict, project=config.SETTINGS.PROJECT_NAME)
-
-    # Make directory for models
-    weight_dir = f'runs/{config.SETTINGS.PROJECT_NAME}_weights'
-    image_dir = f'runs/{config.SETTINGS.PROJECT_NAME}_images'
-
-    pathlib.Path(weight_dir).mkdir(parents=True, exist_ok=True)
-    pathlib.Path(image_dir).mkdir(parents=True, exist_ok=True)
 
     # Seeding
     torch.manual_seed(config.TRAINING.SEED)
@@ -38,8 +31,9 @@ def training_config(config_dict):
     # Model configuration
     model, model_name = create_model(config, config_dict, device)
     input_mapper = create_input_mapper(config, device)
-
-    print(f'Number of MLP parameters {sum(p.numel() for p in model.parameters())}')
+    
+    if verbose:
+        print(f'Number of MLP parameters {sum(p.numel() for p in model.parameters())}')
 
     # Losses configuration
     lpips_loss, criterion, mi_criterion, cc_criterion, model_name = create_losses(config, config_dict, model_name, device)  
@@ -61,7 +55,7 @@ def training_config(config_dict):
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max= config.TRAINING.EPOCHS_cos)
 
     # Load Data
-    dataset, train_dataloader, infer_dataloader, threshold = create_datasets(config)
+    dataset, train_dataloader, infer_dataloader, threshold = create_datasets(config, verbose)
     
     fixed_image, rev_affine, min_coords, max_coords, difference_center_of_mass, format_im = compute_dataset_artifacts(dataset, device)
 
@@ -81,7 +75,6 @@ def training_config(config_dict):
     
     model_config = (model, model_name, optimizer, scheduler)
     data_config = (dataset, train_dataloader, infer_dataloader, input_mapper)
-    directories = (weight_dir, image_dir)
     
-    return config, model_config, data_config, directories, training_args
+    return config, model_config, data_config, training_args
 

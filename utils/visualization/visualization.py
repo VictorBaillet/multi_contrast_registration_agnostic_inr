@@ -6,7 +6,7 @@ import os
 from utils.visualization.utils_visualization import show_slices_gt, show_slices_registration, show_jacobian_det, compute_metrics
 
 
-def generate_NIFTIs(dataset, model_intensities, image_dir, model_name_epoch, epoch, wandb_epoch_dict, config):
+def generate_NIFTIs(dataset, model_intensities, epoch, wandb_epoch_dict, config):
     x_dim_c1, y_dim_c1, z_dim_c1 = dataset.get_dim(contrast=1, resolution='gt')
     x_dim_c2, y_dim_c2, z_dim_c2 = dataset.get_dim(contrast=2, resolution='gt')
     threshold = len(dataset.get_coordinates(contrast=1, resolution='gt'))
@@ -44,17 +44,7 @@ def generate_NIFTIs(dataset, model_intensities, image_dir, model_name_epoch, epo
 
     pred_contrast1 = img_contrast1
     pred_contrast2 = img_contrast2
-    
-    mgrid_affine_contrast1 = dataset.get_affine(contrast=1, resolution='gt')
-    mgrid_affine_contrast2 = dataset.get_affine(contrast=2, resolution='gt')
-    affine_c1 = np.array(mgrid_affine_contrast1)
-    affine_c2 = np.array(mgrid_affine_contrast2)
-    
-    img = nib.Nifti1Image(img_contrast1, affine_c1)
-
-    if epoch == (config.TRAINING.EPOCHS -1):
-        nib.save(img, os.path.join(image_dir, model_name_epoch.replace("model.pt", f"_ct1.nii.gz")))
-
+        
     slice_0 = img_contrast1[int(x_dim_c1/2), :, :]
     slice_1 = img_contrast1[:, int(y_dim_c1/2), :]
     slice_2 = img_contrast1[:, :, int(z_dim_c1/2)]
@@ -74,10 +64,6 @@ def generate_NIFTIs(dataset, model_intensities, image_dir, model_name_epoch, epo
     im = show_slices_gt([slice_0, slice_1, slice_2],[bslice_0, bslice_1, bslice_2], epoch)
     image = wandb.Image(im, caption=f"{config.DATASET.LR_CONTRAST2} prediction vs {config.DATASET.LR_CONTRAST1} gt.")
     wandb_epoch_dict.update({f"{config.DATASET.LR_CONTRAST2} prediction vs {config.DATASET.LR_CONTRAST1} gt": image})
-        
-    img = nib.Nifti1Image(img_contrast2, affine_c2)
-    if epoch == (config.TRAINING.EPOCHS -1):
-        nib.save(img, os.path.join(image_dir, model_name_epoch.replace("model.pt", f"_ct2.nii.gz")))
 
     slice_0 = img_contrast2_interpolated[int(x_dim_c2/2), :, :]
     slice_1 = img_contrast2_interpolated[:, int(y_dim_c2/2), :]

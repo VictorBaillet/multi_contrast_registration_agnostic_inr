@@ -52,14 +52,14 @@ def create_model(config, config_dict, device):
     
     return model, model_name
 
-def create_datasets(config):
+def create_datasets(config, verbose=True):
     dataset = MultiModalDataset(
                     image_dir = config.SETTINGS.DIRECTORY,
                     name = config.SETTINGS.PROJECT_NAME,
                     subject_id=config.DATASET.SUBJECT_ID,
                     contrast1_LR_str=config.DATASET.LR_CONTRAST1,
                     contrast2_LR_str=config.DATASET.LR_CONTRAST2, 
-                    )
+                    verbose=verbose)
     
     train_dataloader = DataLoader(dataset, batch_size=config.TRAINING.BATCH_SIZE, 
                                  shuffle=config.TRAINING.SHUFFELING, 

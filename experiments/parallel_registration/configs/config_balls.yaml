@@ -1,7 +1,7 @@
 SETTINGS:
   DIRECTORY: 'projects/data/balls' 
   PROJECT_NAME: 'balls'
-  GPU_DEVICE: 0
+  GPU_DEVICE: 1
   NUM_WORKERS: 16
   LOGGING: False
 
@@ -18,7 +18,7 @@ TRAINING:
   BATCH_SIZE: 10000
   LR: 0.0004
   EPOCHS_cos: 50
-  EPOCHS: 150
+  EPOCHS: 100
   OPTIM: 'Adam'
   SHUFFELING: True
   SIMILARITY_LOSS: 'MSELoss'

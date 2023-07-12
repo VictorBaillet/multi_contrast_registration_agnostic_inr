@@ -49,7 +49,7 @@ class MultiModalDataset(_BaseDataset):
         Contrast 2 LR string.
     """
 
-    def __init__(self, image_dir, name, subject_id, contrast1_LR_str, contrast2_LR_str):
+    def __init__(self, image_dir, name, subject_id, contrast1_LR_str, contrast2_LR_str, verbose):
         super(MultiModalDataset, self).__init__(image_dir)
         self.dataset_name = name
         self.subject_id = subject_id
@@ -61,7 +61,7 @@ class MultiModalDataset(_BaseDataset):
         self.contrast2_GT_str = contrast2_LR_str.replace("_LR", "")
         self.contrast1_GT_mask_str = "bodymask"
         self.contrast2_GT_mask_str = "bodymask"
-        
+        self.verbose = verbose
         #Cross correlation/Mutual information between gt images and lr images -- Computed in the config of each project.
         self.gt_similarity = 0
         self.lr_similarity = 0
@@ -109,14 +109,15 @@ class MultiModalDataset(_BaseDataset):
         self.dataset_path = os.path.join(os.path.join(os.getcwd(), "projects/preprocessed_data"), self.dataset_name)
         
         if os.path.isfile(self.dataset_path):
-            print("Dataset available : ", self.dataset_name)
+            if verbose:
+                print("Dataset available : ", self.dataset_name)
+                print("skipping preprocessing.")
             dataset = torch.load(self.dataset_path)
             self.data = dataset["data"]
             self.labels = dataset["labels"]
             self.mask = dataset["mask"]
             self.len = dataset["len"]
             self.contrasts_data = dataset["contrasts_data"]
-            print("skipping preprocessing.")
 
         else:
             self.len = 0
@@ -134,18 +135,18 @@ class MultiModalDataset(_BaseDataset):
         return data, label, mask
 
     def _process(self):
+        if self.verbose:
+            print(f"Using {self.lr_contrast1} as contrast1.")
+            print(f"Using {self.lr_contrast2} as contrast2.")
 
-        print(f"Using {self.lr_contrast1} as contrast1.")
-        print(f"Using {self.lr_contrast2} as contrast2.")
+            print(f"Using {self.lr_contrast1_mask} as contrast1 mask.")
+            print(f"Using {self.lr_contrast2_mask} as contrast2 mask.")
 
-        print(f"Using {self.lr_contrast1_mask} as contrast1 mask.")
-        print(f"Using {self.lr_contrast2_mask} as contrast2 mask.")
+            print(f"Using {self.gt_contrast1} as gt contrast1.")
+            print(f"Using {self.gt_contrast2} as gt contrast2.")
 
-        print(f"Using {self.gt_contrast1} as gt contrast1.")
-        print(f"Using {self.gt_contrast2} as gt contrast2.")
-
-        print(f"Using {self.gt_contrast1_mask} as gt contrast1 mask.")
-        print(f"Using {self.gt_contrast2_mask} as gt contrast2 mask.")
+            print(f"Using {self.gt_contrast1_mask} as gt contrast1 mask.")
+            print(f"Using {self.gt_contrast2_mask} as gt contrast2 mask.")
         
         lr_contrast1_image = nib.load(str(self.lr_contrast1))
         lr_contrast2_image = nib.load(str(self.lr_contrast2))

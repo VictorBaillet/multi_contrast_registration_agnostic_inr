@@ -10,7 +10,7 @@ from experiments.serial_registration.experiment_utils.utils_config import create
 
 
 def training_config(config_dict):
-        # Init arguments 
+    # Init arguments 
     os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
     #os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(map(str, args.cuda_visible_device))
     
@@ -19,13 +19,6 @@ def training_config(config_dict):
     if config.SETTINGS.LOGGING:
         wandb.login()
         wandb.init(config=config_dict, project=config.SETTINGS.PROJECT_NAME)
-
-    # Make directory for models
-    weight_dir = f'runs/{config.SETTINGS.PROJECT_NAME}_weights'
-    image_dir = f'runs/{config.SETTINGS.PROJECT_NAME}_images'
-
-    pathlib.Path(weight_dir).mkdir(parents=True, exist_ok=True)
-    pathlib.Path(image_dir).mkdir(parents=True, exist_ok=True)
 
     # Seeding
     torch.manual_seed(config.TRAINING.SEED)
@@ -79,7 +72,6 @@ def training_config(config_dict):
     model_config = (model, model_name, optimizer, scheduler)
     model_registration_config = (model_registration, optimizer_registration, scheduler_registration)
     data_config = (dataset, train_dataloader, infer_dataloader, infer_dataloader_contrast1, infer_dataloader_contrast2, input_mapper)
-    directories = (weight_dir, image_dir)
     
-    return config, model_config, model_registration_config, data_config, directories, training_args
+    return config, model_config, model_registration_config, data_config, training_args
 
