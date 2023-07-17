@@ -6,7 +6,7 @@ import wandb
 
 from utils.utils import dict2obj
 from utils.config.config import create_losses, process_config, create_input_mapper 
-from experiments.serial_registration.experiment_utils.utils_config import create_model, create_datasets, compute_dataset_artifacts
+from models.serial_registration.experiment_utils.utils_config import create_model, create_datasets, compute_dataset_artifacts
 
 
 def training_config(config_dict):

@@ -1,11 +1,12 @@
 SETTINGS:
-  DIRECTORY: 'projects/data/spine_generic' 
-  PROJECT_NAME: 'spine_generic'
+  DIRECTORY: 'data/raw_data/balls' 
+  PROJECT_NAME: 'balls'
   GPU_DEVICE: 0
   NUM_WORKERS: 16
+  LOGGING: False
 
 DATASET:
-  SUBJECT_ID: 'sub-hamburg02-shifted' 
+  SUBJECT_ID: 'ball_02' 
   LR_CONTRAST1: 'T1w_LR'  
   LR_CONTRAST2: 'T2w_LR' 
 
@@ -21,7 +22,6 @@ TRAINING:
   OPTIM: 'Adam'
   SHUFFELING: True
   SIMILARITY_LOSS: 'MSELoss'
-  
   
   LOSS_WEIGHT:
       MSE_C1: 1.0

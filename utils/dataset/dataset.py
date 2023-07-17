@@ -106,7 +106,7 @@ class MultiModalDataset(_BaseDataset):
         self.gt_contrast1_mask = gt_contrast1_mask
         self.gt_contrast2_mask = gt_contrast2_mask
         
-        self.dataset_path = os.path.join(os.path.join(os.getcwd(), "projects/preprocessed_data"), self.dataset_name)
+        self.dataset_path = os.path.join(os.path.join(os.getcwd(), "data/preprocessed_data"), self.dataset_name)
         
         if os.path.isfile(self.dataset_path):
             if verbose:
@@ -219,8 +219,8 @@ class MultiModalDataset(_BaseDataset):
             'labels': self.labels,
             'contrasts_data': self.contrasts_data}
         
-        if not os.path.exists(os.path.join(os.path.join(os.getcwd(), "projects/preprocessed_data"))):
-            os.makedirs(os.path.join(os.path.join(os.getcwd(), "projects/preprocessed_data")))
+        if not os.path.exists(os.path.join(os.path.join(os.getcwd(), "data/preprocessed_data"))):
+            os.makedirs(os.path.join(os.path.join(os.getcwd(), "data/preprocessed_data")))
         torch.save(dataset, self.dataset_path)
         
     def get_labels(self):

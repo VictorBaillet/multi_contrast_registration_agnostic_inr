@@ -3,8 +3,8 @@ import sys
 import argparse
 import pathlib
 from utils.config.config import parse_args, process_config 
-from experiments.parallel_registration.parallel_registration import parallel_registration_irn
-from experiments.serial_registration.serial_registration import serial_registration_irn
+from models.parallel_registration.parallel_registration import parallel_registration_irn
+from models.serial_registration.serial_registration import serial_registration_irn
 
 """
 Rajouter methodes : .save et .load
@@ -14,7 +14,7 @@ Rajouter methodes : .save et .load
 def main():
     args = parse_args()
     experiment_name = args.experiment_name
-    project_folder = os.path.join('experiments', experiment_name)
+    project_folder = os.path.join('models', experiment_name)
     config_folder = os.path.join(project_folder, 'configs')
     args.config = os.path.join(config_folder, args.config)
     

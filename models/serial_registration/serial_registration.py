@@ -15,8 +15,8 @@ from utils.utils import fast_trilinear_interpolation, center_of_mass
 from utils.visualization.visualization import generate_NIFTIs, compute_and_log_metrics
 from utils.config.config import create_losses, process_config, parse_args, create_input_mapper 
 
-from experiments.serial_registration.training import forward_iteration, inference_iteration_contrast2
-from experiments.serial_registration.config import training_config 
+from models.serial_registration.training import forward_iteration, inference_iteration_contrast2
+from models.serial_registration.config import training_config 
 
 
 

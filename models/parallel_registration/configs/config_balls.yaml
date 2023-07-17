@@ -1,7 +1,7 @@
 SETTINGS:
-  DIRECTORY: 'projects/data/balls' 
+  DIRECTORY: 'data/raw_data/balls' 
   PROJECT_NAME: 'balls'
-  GPU_DEVICE: 0
+  GPU_DEVICE: 1
   NUM_WORKERS: 16
   LOGGING: False
 
@@ -30,9 +30,10 @@ TRAINING:
       MI: 0.01
       BENDING_ENERGY: 5
       JACOBIAN: 0.5
-      HYPER_ELASTIC: 0.0005
-      NORM_LOSS: 0.05
+      HYPER_ELASTIC: 0.05 
+      NORM_LOSS: 0.0005
 
+  # only one used at same time
   USE_MI: True
   USE_NMI: False
   USE_CC: True
@@ -59,6 +60,8 @@ SIREN:
   HIDDEN_OMEGA_0: 15
 
 MI_CC:
+  LOSS_MI: 0.5
+  LOSS_CC: 0.0008
   MI_NUM_BINS: 32  
   MI_SAMPLE_RATIO: 0.7
   NMI_SIGMA: 0.1
@@ -68,3 +71,4 @@ WIRE:
   WIRE_REAL_HIDDEN_OMEGA_0: 15
   WIRE_REAL_FIRST_S_0: 15
   WIRE_REAL_HIDDEN_S_0: 15
+

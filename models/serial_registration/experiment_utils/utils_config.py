@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from utils.utils import center_of_mass
 from utils.dataset.dataset_utils import norm_grid
 from utils.dataset.dataset import MultiModalDataset, InferDataset
-from experiments.serial_registration.networks import MLPv2, Siren, WireReal
+from models.serial_registration.networks import MLPv2, Siren, WireReal
 
 def create_model(config, config_dict, device):
     # Model Selection

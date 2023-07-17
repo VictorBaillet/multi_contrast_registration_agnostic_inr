@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 from utils.utils import fast_trilinear_interpolation
-from experiments.serial_registration.experiment_utils.utils_training import config_data, process_output, compute_similarity_loss, compute_regularization_loss, update_wandb_batch_dict
+from models.serial_registration.experiment_utils.utils_training import config_data, process_output, compute_similarity_loss, compute_regularization_loss, update_wandb_batch_dict
 
 from utils.loss_functions.utils_loss import compute_jacobian_matrix
     

@@ -1,8 +1,9 @@
 #Ignore preprocessed data
-projects/preprocessed_data/*
+
+data/preprocessed_data/*
 
 #Ignore project data
-projects/data/*
+data/raw_data/*
 
 #Ignore runs data
 runs/*

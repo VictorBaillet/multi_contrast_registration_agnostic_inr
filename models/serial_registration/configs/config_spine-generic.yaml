@@ -1,11 +1,11 @@
 SETTINGS:
-  DIRECTORY: 'projects/data/spine_generic' 
+  DIRECTORY: 'data/raw_data/spine_generic' 
   PROJECT_NAME: 'spine_generic'
   GPU_DEVICE: 0
   NUM_WORKERS: 16
 
 DATASET:
-  SUBJECT_ID: 'sub-hamburg02-reg' 
+  SUBJECT_ID: 'sub-hamburg02-shifted' 
   LR_CONTRAST1: 'T1w_LR'  
   LR_CONTRAST2: 'T2w_LR' 
 
@@ -22,6 +22,7 @@ TRAINING:
   SHUFFELING: True
   SIMILARITY_LOSS: 'MSELoss'
   
+  
   LOSS_WEIGHT:
       MSE_C1: 1.0
       MSE_C2: 1.0
@@ -29,10 +30,9 @@ TRAINING:
       MI: 0.01
       BENDING_ENERGY: 5
       JACOBIAN: 0.5
-      HYPER_ELASTIC: 0.0005 
-      NORM_LOSS: 0.0005
+      HYPER_ELASTIC: 0.0005
+      NORM_LOSS: 0.05
 
-  # only one used at same time
   USE_MI: True
   USE_NMI: False
   USE_CC: True
@@ -59,8 +59,6 @@ SIREN:
   HIDDEN_OMEGA_0: 15
 
 MI_CC:
-  LOSS_MI: 0.5
-  LOSS_CC: 0.0008
   MI_NUM_BINS: 32  
   MI_SAMPLE_RATIO: 0.7
   NMI_SIGMA: 0.1
@@ -70,4 +68,3 @@ WIRE:
   WIRE_REAL_HIDDEN_OMEGA_0: 15
   WIRE_REAL_FIRST_S_0: 15
   WIRE_REAL_HIDDEN_S_0: 15
-

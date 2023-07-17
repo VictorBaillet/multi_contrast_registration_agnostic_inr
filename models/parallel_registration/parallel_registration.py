@@ -16,8 +16,8 @@ from utils.config.config import parse_args
 from utils.visualization.visualization import generate_NIFTIs, compute_and_log_metrics
 from utils.utils import fast_trilinear_interpolation, center_of_mass
 
-from experiments.parallel_registration.training import forward_iteration, inference_iteration
-from experiments.parallel_registration.config import training_config 
+from models.parallel_registration.training import forward_iteration, inference_iteration
+from models.parallel_registration.config import training_config 
 
 
 
