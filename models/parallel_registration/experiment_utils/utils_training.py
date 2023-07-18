@@ -34,7 +34,7 @@ def config_data(data, labels, mask, device, config, input_mapper):
         
     return raw_data, data, contrast1_labels, contrast2_labels, contrast1_mask, contrast2_mask
 
-def process_output(target, raw_data, threshold, fixed_image, rev_affine, max_coords, min_coords, format_im, config, device):
+def process_output(target, raw_data, threshold, moving_image, rev_affine, max_coords, min_coords, format_im, config, device):
     mse_target1 = target[:threshold,0]  # contrast1 output for contrast1 coordinate
     mse_target2 = target[:,1]  # contrast2 output for contrast2 coordinate
     #registration_target = target[:,2:4].to(device=device)
@@ -47,7 +47,7 @@ def process_output(target, raw_data, threshold, fixed_image, rev_affine, max_coo
     coord_temp = torch.add(registration_target, raw_data.to(device=device))
     
     contrast2_interpolated = fast_trilinear_interpolation(
-        fixed_image,
+        moving_image,
         coord_temp[:, 0],
         coord_temp[:, 1],
         coord_temp[:, 2],

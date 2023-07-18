@@ -8,7 +8,7 @@ from utils.dataset.dataset_utils import norm_grid
 from utils.dataset.dataset import MultiModalDataset, InferDataset
 from models.serial_registration.networks import MLPv2, Siren, WireReal
 
-def create_model(config, device):
+def create_network(config, device):
     # Embeddings
     if config.USE_FF:
         mapping_size = config.FOURIER.MAPPING_SIZE  # of FF
@@ -18,12 +18,12 @@ def create_model(config, device):
         
     output_size = 2
 
-    # Model Selection
+    # Network Selection
     if config.USE_SIREN:
-        model = Siren(in_features=input_size, out_features=output_size, hidden_features=config.HIDDEN_CHANNELS,
+        network = Siren(in_features=input_size, out_features=output_size, hidden_features=config.HIDDEN_CHANNELS,
                     hidden_layers=config.NUM_LAYERS, first_omega_0=config.SIREN.FIRST_OMEGA_0, hidden_omega_0=config.SIREN.HIDDEN_OMEGA_0)
     elif config.USE_WIRE_REAL:
-        model = WireReal(in_features=input_size, out_features=output_size, hidden_features=config.HIDDEN_CHANNELS,
+        network = WireReal(in_features=input_size, out_features=output_size, hidden_features=config.HIDDEN_CHANNELS,
                     hidden_layers=config.NUM_LAYERS, 
                     first_omega_0=config.WIRE.WIRE_REAL_FIRST_OMEGA_0, hidden_omega_0=config.WIRE.WIRE_REAL_HIDDEN_OMEGA_0,
                     first_s_0=config.WIRE.WIRE_REAL_FIRST_S_0, hidden_s_0=config.WIRE.WIRE_REAL_HIDDEN_S_0
@@ -31,18 +31,18 @@ def create_model(config, device):
     
     else:
         if config.USE_TWO_HEADS:
-            model = MLPv2(input_size=input_size, output_size=output_size, hidden_size=config.HIDDEN_CHANNELS,
+            network = MLPv2(input_size=input_size, output_size=output_size, hidden_size=config.HIDDEN_CHANNELS,
                     num_layers=config.NUM_LAYERS, dropout=config.DROPOUT)
         else:
-            model = MLPv1(input_size=input_size, output_size=output_size, hidden_size=config.HIDDEN_CHANNELS,
+            network = MLPv1(input_size=input_size, output_size=output_size, hidden_size=config.HIDDEN_CHANNELS,
                         num_layers=config.NUM_LAYERS, dropout=config.DROPOUT)
             
-    model_registration = Siren(in_features=3, hidden_features=128, hidden_layers=2, out_features=3)
-    model_registration = model_registration.to(device=device)
+    network_registration = Siren(in_features=3, hidden_features=128, hidden_layers=2, out_features=3)
+    network_registration = network_registration.to(device=device)
 
-    model.to(device)
+    network.to(device)
     
-    return model, model_registration
+    return network, network_registration
 
 
 def create_datasets(config, data_path, contrast_1, contrast_2, dataset_name, verbose):
@@ -92,15 +92,15 @@ def compute_dataset_artifacts(dataset, device):
     x_dim_c2_lr, y_dim_c2_lr, z_dim_c2_lr = dataset.get_dim(contrast=2, resolution='lr')
 
     # Image to be registered
-    fixed_image_unprocessed = dataset.get_intensities(contrast=2, resolution='gt').reshape((x_dim_c2_lr, y_dim_c2_lr, z_dim_c2_lr))
+    moving_image_unprocessed = dataset.get_intensities(contrast=2, resolution='gt').reshape((x_dim_c2_lr, y_dim_c2_lr, z_dim_c2_lr))
     # Créer un nouveau tableau y de taille (n+1), (m+1), (p+1) rempli de zéros
-    n, m, p = fixed_image_unprocessed.shape
-    fixed_image = torch.zeros((n+2, m+2, p+2))
+    n, m, p = moving_image_unprocessed.shape
+    moving_image = torch.zeros((n+2, m+2, p+2))
 
     # Copier les valeurs de x dans y sauf pour les indices i=0 ou n, j=0 ou m et k=0 ou p
-    fixed_image[1:-1, 1:-1, 1:-1] = fixed_image_unprocessed
+    moving_image[1:-1, 1:-1, 1:-1] = moving_image_unprocessed
 
-    moving_image = dataset.get_intensities(contrast=1, resolution='gt').reshape((x_dim_c1_lr, y_dim_c1_lr, z_dim_c1_lr))
+    fixed_image = dataset.get_intensities(contrast=1, resolution='gt').reshape((x_dim_c1_lr, y_dim_c1_lr, z_dim_c1_lr))
 
     
     # Maximum and minimum coordinates of the training points (used in fast_trilinear_interpolation)
@@ -112,8 +112,8 @@ def compute_dataset_artifacts(dataset, device):
     affine1 = dataset.get_affine(contrast=1, resolution='gt').cpu().numpy()
     rev_affine1 = np.linalg.inv(affine1)
 
-    center_of_mass_c2 = nib.affines.apply_affine(affine, center_of_mass(fixed_image.cpu().numpy()))
-    center_of_mass_c1 = nib.affines.apply_affine(affine1, center_of_mass(moving_image.cpu().numpy()))
+    center_of_mass_c2 = nib.affines.apply_affine(affine, center_of_mass(moving_image.cpu().numpy()))
+    center_of_mass_c1 = nib.affines.apply_affine(affine1, center_of_mass(fixed_image.cpu().numpy()))
     max_coords = [np.max(res[:,i]) for i in range(3)]
     min_coords = [-np.max(-res[:,i]) for i in range(3)]
     rev_affine = torch.tensor(rev_affine, device=device)
@@ -129,6 +129,6 @@ def compute_dataset_artifacts(dataset, device):
     format_im = torch.sub(torch.tensor(max_coords, device=device, dtype=float), 
                           torch.tensor(min_coords, device=device, dtype=float))
     
-    return fixed_image, rev_affine, min_coords, max_coords, difference_center_of_mass, format_im 
+    return moving_image, rev_affine, min_coords, max_coords, difference_center_of_mass, format_im 
 
     

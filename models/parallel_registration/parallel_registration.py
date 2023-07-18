@@ -46,10 +46,10 @@ class parallel_registration_irn:
         self.wandb_epoch_dict = {}
         self.verbose = verbose
         
-    def fit(self, data_path, contrast_1, contrast_2, dataset_name, verbose=True):
+    def fit(self, data_path, contrast_1, contrast_2, dataset_name):
         self.dataset, self.train_dataloader, self.infer_dataloader, self.dataset_artifacts = data_config(self.config, data_path, 
                                                                                                          contrast_1, contrast_2, 
-                                                                                                         dataset_name, self.device, verbose)
+                                                                                                         dataset_name, self.device, self.verbose)
         self.contrast_1_name = contrast_1
         self.contrast_2_name = contrast_2
         # Seeding
@@ -165,8 +165,8 @@ class parallel_registration_irn:
     def _inference(self):
         if self.verbose:
             print('Inference...')
-        model_inference = self.network
-        model_inference.eval()
+        network_inference = self.network
+        network_inference.eval()
 
         # start inference
         start = time.time()
@@ -175,12 +175,12 @@ class parallel_registration_irn:
         x_dim_c2, y_dim_c2, z_dim_c2 = self.dataset.get_dim(contrast=2, resolution='gt')
 
         out = np.zeros((int(x_dim_c1*y_dim_c1*z_dim_c1 + x_dim_c2*y_dim_c2*z_dim_c2), 8))
-        model_inference.to(self.device)
+        network_inference.to(self.device)
         batch_size = 10000
         for batch_idx, (data) in enumerate(self.infer_dataloader):
             
             data.requires_grad_()            
-            out[batch_idx*batch_size:(batch_idx*batch_size + len(data))] = inference_iteration(model_inference, data, 
+            out[batch_idx*batch_size:(batch_idx*batch_size + len(data))] = inference_iteration(network_inference, data, 
                                                                                                **self.training_args, **self.dataset_artifacts)
 
         model_intensities=out

@@ -4,21 +4,21 @@ from models.parallel_registration.experiment_utils.utils_training import config_
 from utils.loss_functions.utils_loss import compute_jacobian_matrix
     
 
-def forward_iteration(model, raw_data, labels, mask, wandb_batch_dict, epoch, config, device, input_mapper, 
-                      fixed_image, criterion, mi_criterion, cc_criterion, min_coords, max_coords, rev_affine,
+def forward_iteration(network, raw_data, labels, mask, wandb_batch_dict, epoch, config, device, input_mapper, 
+                      moving_image, criterion, mi_criterion, cc_criterion, min_coords, max_coords, rev_affine,
                       difference_center_of_mass, format_im, **kwargs):
     
     raw_data, data, contrast1_labels, contrast2_labels, contrast1_mask, contrast2_mask = config_data(raw_data, labels, mask, 
                                                                                                      device, config, input_mapper)
     
-    target = model(data)
+    target = network(data)
     
     if config.NETWORK.USE_SIREN or config.NETWORK.USE_WIRE_REAL: 
         target, _ = target
     
     mse_target1, mse_target2, contrast2_interpolated, registration_target, mi_target1, mi_target2 = process_output(target, raw_data, 
                                                                                                                    len(contrast1_labels), 
-                                                                                                                   fixed_image, 
+                                                                                                                   moving_image, 
                                                                                                                    rev_affine, max_coords,
                                                                                                                    min_coords, format_im, config, 
                                                                                                                    device)
@@ -56,7 +56,7 @@ def forward_iteration(model, raw_data, labels, mask, wandb_batch_dict, epoch, co
                      
     return loss, cc_loss_registration, wandb_batch_dict
 
-def inference_iteration(model, raw_data, config, device, input_mapper, fixed_image, min_coords, max_coords, rev_affine,
+def inference_iteration(network, raw_data, config, device, input_mapper, moving_image, min_coords, max_coords, rev_affine,
                         difference_center_of_mass, format_im, **kwargs):
     if torch.cuda.is_available():
         raw_data = raw_data.to(device)
@@ -68,13 +68,13 @@ def inference_iteration(model, raw_data, config, device, input_mapper, fixed_ima
     else:
         data = raw_data
 
-    output = model(data)
+    output = network(data)
     
     if config.NETWORK.USE_SIREN or config.NETWORK.USE_WIRE_REAL:
         output, _ = output
     
     _, _, contrast2_interpolated, registration_target, _, _ = process_output(output, raw_data, 
-                                                                             0, fixed_image, rev_affine, max_coords,
+                                                                             0, moving_image, rev_affine, max_coords,
                                                                              min_coords, format_im, config, device)
     
     registration = output[:,2:4].to(device=device)

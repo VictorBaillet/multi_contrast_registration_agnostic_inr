@@ -6,15 +6,15 @@ from models.serial_registration.experiment_utils.utils_training import config_da
 from utils.loss_functions.utils_loss import compute_jacobian_matrix
     
 
-def forward_iteration(model, model_registration, raw_data, labels, wandb_batch_dict, epoch, config, device, input_mapper, fixed_image, 
+def forward_iteration(network, network_registration, raw_data, labels, wandb_batch_dict, epoch, config, device, input_mapper, moving_image, 
                       criterion, mi_criterion, cc_criterion, min_coords, max_coords, rev_affine, difference_center_of_mass, format_im, **kwargs):
     
     raw_data, raw_contrast2_data, data_contrast1, data_contrast2, contrast1_labels, contrast2_labels = config_data(raw_data, labels, device, config, input_mapper)    
     
-    target_contrast1 = model(data_contrast1)
-    registration_target, _ = model_registration(data_contrast2) 
+    target_contrast1 = network(data_contrast1)
+    registration_target, _ = network_registration(data_contrast2) 
     registration_target = torch.mul(registration_target, format_im).float()
-    target_contrast2 = model(input_mapper(torch.add(registration_target, raw_contrast2_data)))
+    target_contrast2 = network(input_mapper(torch.add(registration_target, raw_contrast2_data)))
     
     mse_target1, mse_target2, mi_target1, mi_target2 = process_output(target_contrast1, target_contrast2, raw_data, config)
     
@@ -52,16 +52,16 @@ def forward_iteration(model, model_registration, raw_data, labels, wandb_batch_d
     
     return registration_loss, mse_loss, wandb_batch_dict
 
-def inference_iteration_contrast2(model, model_registration, raw_data, config, device, fixed_image, input_mapper,
+def inference_iteration_contrast2(network, network_registration, raw_data, config, device, moving_image, input_mapper,
                                   min_coords, max_coords, rev_affine, format_im, **kwargs):
     
     if torch.cuda.is_available():
         raw_data = raw_data.to(device)
     data = raw_data*np.pi
             
-    registration_output, _ = model_registration(data) 
+    registration_output, _ = network_registration(data) 
     registration_output = torch.mul(registration_output, format_im).float()
-    output = model(input_mapper(torch.add(registration_output, raw_data)))
+    output = network(input_mapper(torch.add(registration_output, raw_data)))
     jac = compute_jacobian_matrix(data, registration_output, device)
     jac_norm = torch.norm(jac, dim=(1, 2)).unsqueeze(1)
     #det = torch.det(jac) - 1
@@ -71,7 +71,7 @@ def inference_iteration_contrast2(model, model_registration, raw_data, config, d
     coord_temp = torch.add(registration_output, raw_data).to(device=device)
     #coord_temp = raw_data
     contrast2_interpolated = fast_trilinear_interpolation(
-        fixed_image,
+        moving_image,
         coord_temp[:, 0],
         coord_temp[:, 1],
         coord_temp[:, 2],

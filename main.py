@@ -10,7 +10,7 @@ from models.serial_registration.serial_registration import serial_registration_i
 def main():
     args = parse_args()
     config_dict = process_config(args)
-    
+        
     model_config = config_dict['MODEL']
     dataset_config = config_dict['DATASET']
     wandb_config = config_dict['WANDB']

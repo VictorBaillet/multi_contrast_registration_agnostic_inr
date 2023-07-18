@@ -40,20 +40,21 @@ class serial_registration_irn:
             
         return output
         
-    def __init__(self, config_dict):
-        self.config, model_config, model_registration_config, self.training_args = general_config(config_dict)
+    def __init__(self, config_dict, verbose=True):
+        self.config, model_config, model_registration_config, self.training_args = general_config(config_dict, verbose)
         self.config_dict = config_dict
     
         self.network, self.optimizer, self.scheduler, self.input_mapper = model_config
         self.network_registration, self.optimizer_registration, self.scheduler_registration = model_registration_config 
         self.device = self.training_args['device']
         self.logging = False
+        self.verbose = verbose
         self.score = {}
         
-    def fit(self, data_path, contrast_1, contrast_2, dataset_name, verbose=True):
+    def fit(self, data_path, contrast_1, contrast_2, dataset_name):
         # Seeding
         self.dataset, dataloaders, self.dataset_artifacts = data_config(self.config, data_path, contrast_1, contrast_2, 
-                                                                        dataset_name, self.device, verbose)
+                                                                        dataset_name, self.device, self.verbose)
         
         self.contrast_1_name = contrast_1
         self.contrast_2_name = contrast_2
@@ -107,14 +108,15 @@ class serial_registration_irn:
     def load_model(self, path):
         self.network.load_state_dict(torch.load(path))
         
-    def score(self):
+    def get_score(self):
         return self.score
         
     def _training_iteration(self, epoch):
-        print('-----------------')
-        print("Epoch n°", epoch)
-        print('Training the model...')
-        # Set model to train
+        if self.verbose:
+            print('-----------------')
+            print("Epoch n°", epoch)
+            print('Training the model...')
+        # Set network to train
         self.network.train()
         self.network_registration.train()
         
@@ -146,9 +148,9 @@ class serial_registration_irn:
             self.network.requires_grad_(False)
             registration_loss.backward(retain_graph=True)
             self.network.requires_grad_(True)
-            #model_registration.requires_grad_(False)
+            #network_registration.requires_grad_(False)
             mse_loss.backward()
-            #model_registration.requires_grad_(True)
+            #network_registration.requires_grad_(True)
             
             #loss.backward()
             self.optimizer.step()
@@ -180,7 +182,8 @@ class serial_registration_irn:
         
             
     def _inference(self):
-        print('Inference...')
+        if self.verbose:
+            print('Inference...')
         network_inference = self.network
         network_inference_registration = self.network_registration
         network_inference.eval()
@@ -229,7 +232,8 @@ class serial_registration_irn:
         return model_intensities
                         
     def _evaluation(self, model_intensities, epoch):
-        print("Generating NIFTIs.")
+        if self.verbose:
+            print("Generating NIFTIs.")
         pred_contrast1, pred_contrast2, gt_contrast1, gt_contrast2, wandb_epoch_dict = generate_NIFTIs(self.dataset, 
                                                                                                        model_intensities,  
                                                                                                        epoch, self.wandb_epoch_dict, 
