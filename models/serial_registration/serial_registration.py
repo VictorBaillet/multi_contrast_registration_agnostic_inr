@@ -16,7 +16,7 @@ from utils.visualization.visualization import generate_NIFTIs, compute_and_log_m
 from utils.config.config import create_losses, process_config, parse_args, create_input_mapper 
 
 from models.serial_registration.training import forward_iteration, inference_iteration_contrast2
-from models.serial_registration.config import training_config 
+from models.serial_registration.config import general_config, data_config 
 
 
 
@@ -27,13 +27,13 @@ class serial_registration_irn:
         if is_moving_image:
             inputs = inputs*np.pi
             registration_output, _ = self.network_registration(inputs) 
-            registration_output = torch.mul(registration_output, self.training_args['format_im']).float()
+            registration_output = torch.mul(registration_output, self.dataset_artifacts['format_im']).float()
             output = self.network(self.input_mapper(torch.add(registration_output, inputs)))
         
         else:
-            if self.config.MODEL.USE_FF:
+            if self.config.NETWORK.USE_FF:
                 inputs = self.input_mapper(inputs)
-            elif self.config.MODEL.USE_SIREN:
+            elif self.config.NETWORK.USE_SIREN:
                 inputs = inputs*np.pi
 
             output = self.network(inputs)
@@ -41,17 +41,24 @@ class serial_registration_irn:
         return output
         
     def __init__(self, config_dict):
-        self.config, model_config, model_registration_config, data_config, self.training_args = training_config(config_dict)
+        self.config, model_config, model_registration_config, self.training_args = general_config(config_dict)
+        self.config_dict = config_dict
     
-        self.network, self.model_name, self.optimizer, self.scheduler = model_config
-        self.network_registration, self.optimizer_registration, self.scheduler_registration = model_registration_config
-        self.dataset, self.train_dataloader, self.infer_dataloader, self.infer_dataloader_contrast1, self.infer_dataloader_contrast2, self.input_mapper = data_config 
+        self.network, self.optimizer, self.scheduler, self.input_mapper = model_config
+        self.network_registration, self.optimizer_registration, self.scheduler_registration = model_registration_config 
         self.device = self.training_args['device']
-        self.logging = self.config.SETTINGS.LOGGING
+        self.logging = False
         self.score = {}
         
-    def fit(self):
+    def fit(self, data_path, contrast_1, contrast_2, dataset_name, verbose=True):
         # Seeding
+        self.dataset, dataloaders, self.dataset_artifacts = data_config(self.config, data_path, contrast_1, contrast_2, 
+                                                                        dataset_name, self.device, verbose)
+        
+        self.contrast_1_name = contrast_1
+        self.contrast_2_name = contrast_2
+        
+        self.train_dataloader, self.infer_dataloader, self.infer_dataloader_contrast1, self.infer_dataloader_contrast2 = dataloaders
         torch.manual_seed(self.config.TRAINING.SEED)
         np.random.seed(self.config.TRAINING.SEED)
         
@@ -66,8 +73,15 @@ class serial_registration_irn:
             if self.logging:
                 wandb.log(self.wandb_epoch_dict)  # update logs per epoch
                 
+    def config_wandb(self, logging, project_name):
+        self.logging = logging
+        if self.logging:
+            wandb.login()
+            wandb.init(config=self.config_dict, project=project_name)
+                
     def save_model(self, path):
         torch.save(self.network.state_dict(), path)
+        
         
     def save_images(self, contrast, path):
         x_dim, y_dim, z_dim = self.dataset.get_dim(contrast=contrast, resolution='gt')
@@ -115,7 +129,8 @@ class serial_registration_irn:
             
             # Forward pass
             registration_loss, mse_loss, wandb_batch_dict = forward_iteration(self.network, self.network_registration, data, labels, 
-                                                                              wandb_batch_dict, epoch, **self.training_args)
+                                                                              wandb_batch_dict, epoch, **self.training_args, 
+                                                                              **self.dataset_artifacts)
                     
             # zero gradients
             self.optimizer.zero_grad()
@@ -186,9 +201,9 @@ class serial_registration_irn:
             if torch.cuda.is_available():
                 data = data.to(self.device)
                 
-            if self.config.MODEL.USE_FF:
+            if self.config.NETWORK.USE_FF:
                 data = self.input_mapper(data)
-            elif self.config.MODEL.USE_SIREN:
+            elif self.config.NETWORK.USE_SIREN:
                 data = data*np.pi
             else:
                 data = data
@@ -203,7 +218,7 @@ class serial_registration_irn:
             data.requires_grad_()
             array_idx = contrast1_last_batch_idx + batch_idx*batch_size
             out[array_idx:(array_idx + len(data))] = inference_iteration_contrast2(network_inference, network_inference_registration, 
-                                                                                   data, **self.training_args)
+                                                                                   data, **self.training_args, **self.dataset_artifacts)
 
         model_intensities=out
         
@@ -218,7 +233,7 @@ class serial_registration_irn:
         pred_contrast1, pred_contrast2, gt_contrast1, gt_contrast2, wandb_epoch_dict = generate_NIFTIs(self.dataset, 
                                                                                                        model_intensities,  
                                                                                                        epoch, self.wandb_epoch_dict, 
-                                                                                                       self.config)
+                                                                                                       self.contrast_1_name, self.contrast_2_name)
 
         mask_c1 = self.dataset.get_mask(contrast=1, resolution='gt')
         mask_c2 = self.dataset.get_mask(contrast=2, resolution='gt')

@@ -17,7 +17,7 @@ from utils.visualization.visualization import generate_NIFTIs, compute_and_log_m
 from utils.utils import fast_trilinear_interpolation, center_of_mass
 
 from models.parallel_registration.training import forward_iteration, inference_iteration
-from models.parallel_registration.config import training_config 
+from models.parallel_registration.config import general_config, data_config
 
 
 
@@ -26,9 +26,9 @@ class parallel_registration_irn:
         if torch.cuda.is_available():
             inputs = inputs.to(device)
                 
-        if self.config.MODEL.USE_FF:
+        if self.config.NETWORK.USE_FF:
             inputs = self.input_mapper(inputs)
-        elif config.MODEL.USE_SIREN:
+        elif config.NETWORK.USE_SIREN:
             inputs = inputs*np.pi
 
         output = self.network(inputs)
@@ -36,17 +36,22 @@ class parallel_registration_irn:
         return output
 
     def __init__(self, config_dict, verbose=True):
-        self.config, model_config, data_config, self.training_args = training_config(config_dict, verbose)
+        self.config_dict = config_dict
+        self.config, model_config, self.training_args = general_config(config_dict, verbose)
     
-        self.network, self.model_name, self.optimizer, self.scheduler = model_config
-        self.dataset, self.train_dataloader, self.infer_dataloader, self.input_mapper = data_config 
+        self.network, self.optimizer, self.scheduler, self.input_mapper = model_config 
         self.device = self.training_args['device']
-        self.logging = self.config.SETTINGS.LOGGING
+        self.logging = False
         self.score = {}
         self.wandb_epoch_dict = {}
         self.verbose = verbose
         
-    def fit(self):
+    def fit(self, data_path, contrast_1, contrast_2, dataset_name, verbose=True):
+        self.dataset, self.train_dataloader, self.infer_dataloader, self.dataset_artifacts = data_config(self.config, data_path, 
+                                                                                                         contrast_1, contrast_2, 
+                                                                                                         dataset_name, self.device, verbose)
+        self.contrast_1_name = contrast_1
+        self.contrast_2_name = contrast_2
         # Seeding
         torch.manual_seed(self.config.TRAINING.SEED)
         np.random.seed(self.config.TRAINING.SEED)
@@ -61,6 +66,12 @@ class parallel_registration_irn:
             
             if self.logging:
                 wandb.log(self.wandb_epoch_dict)  # update logs per epoch
+                
+    def config_wandb(self, logging, project_name):
+        self.logging = logging
+        if self.logging:
+            wandb.login()
+            wandb.init(config=self.config_dict, project=project_name)
                 
     def save_model(self, path):
         torch.save(self.network.state_dict(), path)
@@ -111,7 +122,7 @@ class parallel_registration_irn:
             
             # Forward pass
             loss, cc_loss_registration, wandb_batch_dict = forward_iteration(self.network, data, labels, mask, wandb_batch_dict, 
-                                                                             epoch, self.model_name, **self.training_args)
+                                                                             epoch, **self.training_args, **self.dataset_artifacts)
                     
             # zero gradients
             self.optimizer.zero_grad()
@@ -169,7 +180,8 @@ class parallel_registration_irn:
         for batch_idx, (data) in enumerate(self.infer_dataloader):
             
             data.requires_grad_()            
-            out[batch_idx*batch_size:(batch_idx*batch_size + len(data))] = inference_iteration(model_inference, data, **self.training_args)
+            out[batch_idx*batch_size:(batch_idx*batch_size + len(data))] = inference_iteration(model_inference, data, 
+                                                                                               **self.training_args, **self.dataset_artifacts)
 
         model_intensities=out
         
@@ -182,10 +194,9 @@ class parallel_registration_irn:
     def _evaluation(self, model_intensities, epoch):
         if self.verbose:
             print("Generating NIFTIs.")
-        pred_contrast1, pred_contrast2, gt_contrast1, gt_contrast2, wandb_epoch_dict = generate_NIFTIs(self.dataset, 
-                                                                                                       model_intensities, 
-                                                                                                       epoch, self.wandb_epoch_dict, 
-                                                                                                       self.config)
+        pred_contrast1, pred_contrast2, gt_contrast1, gt_contrast2, wandb_epoch_dict = generate_NIFTIs(self.dataset, model_intensities, 
+                                                                                                       epoch, self.wandb_epoch_dict,
+                                                                                                       self.contrast_1_name, self.contrast_2_name)
 
         mask_c1 = self.dataset.get_mask(contrast=1, resolution='gt')
         mask_c2 = self.dataset.get_mask(contrast=2, resolution='gt')

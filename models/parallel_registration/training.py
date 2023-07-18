@@ -4,7 +4,7 @@ from models.parallel_registration.experiment_utils.utils_training import config_
 from utils.loss_functions.utils_loss import compute_jacobian_matrix
     
 
-def forward_iteration(model, raw_data, labels, mask, wandb_batch_dict, epoch, model_name, config, device, input_mapper, 
+def forward_iteration(model, raw_data, labels, mask, wandb_batch_dict, epoch, config, device, input_mapper, 
                       fixed_image, criterion, mi_criterion, cc_criterion, min_coords, max_coords, rev_affine,
                       difference_center_of_mass, format_im, **kwargs):
     
@@ -13,7 +13,7 @@ def forward_iteration(model, raw_data, labels, mask, wandb_batch_dict, epoch, mo
     
     target = model(data)
     
-    if config.MODEL.USE_SIREN or config.MODEL.USE_WIRE_REAL: 
+    if config.NETWORK.USE_SIREN or config.NETWORK.USE_WIRE_REAL: 
         target, _ = target
     
     mse_target1, mse_target2, contrast2_interpolated, registration_target, mi_target1, mi_target2 = process_output(target, raw_data, 
@@ -61,16 +61,16 @@ def inference_iteration(model, raw_data, config, device, input_mapper, fixed_ima
     if torch.cuda.is_available():
         raw_data = raw_data.to(device)
                 
-    if config.MODEL.USE_FF:
+    if config.NETWORK.USE_FF:
         data = input_mapper(raw_data)
-    elif config.MODEL.USE_SIREN:
+    elif config.NETWORK.USE_SIREN:
         data = raw_data*np.pi
     else:
         data = raw_data
 
     output = model(data)
     
-    if config.MODEL.USE_SIREN or config.MODEL.USE_WIRE_REAL:
+    if config.NETWORK.USE_SIREN or config.NETWORK.USE_WIRE_REAL:
         output, _ = output
     
     _, _, contrast2_interpolated, registration_target, _, _ = process_output(output, raw_data, 

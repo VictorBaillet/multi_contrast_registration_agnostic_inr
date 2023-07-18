@@ -1,74 +1,73 @@
-SETTINGS:
-  DIRECTORY: 'data/raw_data/balls' 
-  PROJECT_NAME: 'balls'
-  GPU_DEVICE: 1
-  NUM_WORKERS: 16
-  LOGGING: False
+WANDB:
+    LOGGING: False
+    PROJECT_NAME: 'balls'
 
 DATASET:
-  SUBJECT_ID: 'ball_02' 
-  LR_CONTRAST1: 'T1w_LR'  
-  LR_CONTRAST2: 'T2w_LR' 
-
-
-
-TRAINING:
-
-  SEED: 12
-  BATCH_SIZE: 10000
-  LR: 0.0004
-  EPOCHS_cos: 50
-  EPOCHS: 100
-  OPTIM: 'Adam'
-  SHUFFELING: True
-  SIMILARITY_LOSS: 'MSELoss'
-  
-  LOSS_WEIGHT:
-      MSE_C1: 1.0
-      MSE_C2: 1.0
-      CC: 0.001
-      MI: 0.01
-      BENDING_ENERGY: 5
-      JACOBIAN: 0.5
-      HYPER_ELASTIC: 0.05 
-      NORM_LOSS: 0.0005
-
-  # only one used at same time
-  USE_MI: True
-  USE_NMI: False
-  USE_CC: True
+    DATASET_NAME: 'ball_02'
+    PATH: 'data/raw_data/balls/ball_02'
+    LR_CONTRAST1: 'T1w_LR'  
+    LR_CONTRAST2: 'T2w_LR' 
 
 
 MODEL:
-  # GENERAL
-  USE_TWO_HEADS: True
-  NUM_LAYERS: 4
-  HIDDEN_CHANNELS: 1024
-  DROPOUT: 0.0
-  # ENCODINGS
-  USE_SIREN: False
-  USE_WIRE_REAL: False
-  USE_FF: True
+    MODEL_NAME: 'balls'
+    NETWORK:
+        # GENERAL
+        USE_TWO_HEADS: True
+        NUM_LAYERS: 4
+        HIDDEN_CHANNELS: 1024
+        DROPOUT: 0.0
+        # ENCODINGS
+        USE_SIREN: False
+        USE_WIRE_REAL: False
+        USE_FF: True
 
-FOURIER:
-  MAPPING_SIZE: 256 # each per cos/sine
-  FF_SCALE: 4.0
-  FF_FACTOR: 1.0
+        FOURIER:
+            MAPPING_SIZE: 256 # each per cos/sine
+            FF_SCALE: 4.0
+            FF_FACTOR: 1.0
 
-SIREN:
-  FIRST_OMEGA_0: 15
-  HIDDEN_OMEGA_0: 15
+        SIREN:
+            FIRST_OMEGA_0: 15
+            HIDDEN_OMEGA_0: 15
 
-MI_CC:
-  LOSS_MI: 0.5
-  LOSS_CC: 0.0008
-  MI_NUM_BINS: 32  
-  MI_SAMPLE_RATIO: 0.7
-  NMI_SIGMA: 0.1
-  
-WIRE:
-  WIRE_REAL_FIRST_OMEGA_0: 15
-  WIRE_REAL_HIDDEN_OMEGA_0: 15
-  WIRE_REAL_FIRST_S_0: 15
-  WIRE_REAL_HIDDEN_S_0: 15
+        MI_CC:
+            LOSS_MI: 0.5
+            LOSS_CC: 0.0008
+            MI_NUM_BINS: 32  
+            MI_SAMPLE_RATIO: 0.7
+            NMI_SIGMA: 0.1
+
+        WIRE:
+            WIRE_REAL_FIRST_OMEGA_0: 15
+            WIRE_REAL_HIDDEN_OMEGA_0: 15
+            WIRE_REAL_FIRST_S_0: 15
+            WIRE_REAL_HIDDEN_S_0: 15
+    
+    TRAINING:
+        GPU_DEVICE: 1
+        NUM_WORKERS: 16
+        SEED: 12
+        BATCH_SIZE: 10000
+        LR: 0.0004
+        EPOCHS_cos: 50
+        EPOCHS: 100
+        OPTIM: 'Adam'
+        SHUFFELING: True
+        SIMILARITY_LOSS: 'MSELoss'
+
+        LOSS_WEIGHT:
+            MSE_C1: 1.0
+            MSE_C2: 1.0
+            CC: 0.001
+            MI: 0.01
+            BENDING_ENERGY: 5
+            JACOBIAN: 0.5
+            HYPER_ELASTIC: 0.05 
+            NORM_LOSS: 0.0005
+
+        # only one used at same time
+        USE_MI: True
+        USE_NMI: False
+        USE_CC: True
 

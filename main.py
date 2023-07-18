@@ -13,21 +13,26 @@ Rajouter methodes : .save et .load
 
 def main():
     args = parse_args()
-    experiment_name = args.experiment_name
-    project_folder = os.path.join('models', experiment_name)
-    config_folder = os.path.join(project_folder, 'configs')
-    args.config = os.path.join(config_folder, args.config)
-    
     config_dict = process_config(args)
     
-    if experiment_name == "parallel_registration":
-        net = parallel_registration_irn(config_dict)
-    if experiment_name == "serial_registration":
-        net = serial_registration_irn(config_dict)
-        
-    net.fit()
+    model_config = config_dict['MODEL']
+    dataset_config = config_dict['DATASET']
+    wandb_config = config_dict['WANDB']
     
-    save_folder = f'runs/{config_dict["SETTINGS"]["PROJECT_NAME"]}/'
+    if args.experiment_name == "parallel_registration":
+        net = parallel_registration_irn(model_config)
+    if args.experiment_name == "serial_registration":
+        net = serial_registration_irn(model_config)
+    
+    
+    net.config_wandb(logging=wandb_config['LOGGING'], project_name=wandb_config['PROJECT_NAME'])
+    net.fit(data_path=dataset_config['PATH'], 
+            contrast_1=dataset_config['LR_CONTRAST1'], 
+            contrast_2=dataset_config['LR_CONTRAST2'], 
+            dataset_name=dataset_config['DATASET_NAME'])
+    
+    
+    save_folder = f'runs/{config_dict["DATASET"]["DATASET_NAME"]}/'
     im_dir = save_folder + 'images'
     weights_dir = save_folder + 'weights'
     pathlib.Path(weights_dir).mkdir(parents=True, exist_ok=True)

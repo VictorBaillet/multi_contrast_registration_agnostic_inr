@@ -8,15 +8,9 @@ from utils.dataset.dataset_utils import norm_grid
 from utils.dataset.dataset import MultiModalDataset, InferDataset
 from models.serial_registration.networks import MLPv2, Siren, WireReal
 
-def create_model(config, config_dict, device):
-    # Model Selection
-    model_name = (
-                f'{config.SETTINGS.PROJECT_NAME}_subid-{config.DATASET.SUBJECT_ID}_'
-                f'ct1LR-{config.DATASET.LR_CONTRAST1}_ct2LR-{config.DATASET.LR_CONTRAST2}_'
-                f's_{config.TRAINING.SEED}_shuf_{config.TRAINING.SHUFFELING}_'
-    )
+def create_model(config, device):
     # Embeddings
-    if config.MODEL.USE_FF:
+    if config.USE_FF:
         mapping_size = config.FOURIER.MAPPING_SIZE  # of FF
         input_size = 2* mapping_size
     else:
@@ -25,48 +19,43 @@ def create_model(config, config_dict, device):
     output_size = 2
 
     # Model Selection
-    if config.MODEL.USE_SIREN:
-        model = Siren(in_features=input_size, out_features=output_size, hidden_features=config.MODEL.HIDDEN_CHANNELS,
-                    hidden_layers=config.MODEL.NUM_LAYERS, first_omega_0=config.SIREN.FIRST_OMEGA_0, hidden_omega_0=config.SIREN.HIDDEN_OMEGA_0)
-        model_name = f'{model_name}_SIREN_{get_string(config_dict["SIREN"])}_'
-    elif config.MODEL.USE_WIRE_REAL:
-        model = WireReal(in_features=input_size, out_features=output_size, hidden_features=config.MODEL.HIDDEN_CHANNELS,
-                    hidden_layers=config.MODEL.NUM_LAYERS, 
+    if config.USE_SIREN:
+        model = Siren(in_features=input_size, out_features=output_size, hidden_features=config.HIDDEN_CHANNELS,
+                    hidden_layers=config.NUM_LAYERS, first_omega_0=config.SIREN.FIRST_OMEGA_0, hidden_omega_0=config.SIREN.HIDDEN_OMEGA_0)
+    elif config.USE_WIRE_REAL:
+        model = WireReal(in_features=input_size, out_features=output_size, hidden_features=config.HIDDEN_CHANNELS,
+                    hidden_layers=config.NUM_LAYERS, 
                     first_omega_0=config.WIRE.WIRE_REAL_FIRST_OMEGA_0, hidden_omega_0=config.WIRE.WIRE_REAL_HIDDEN_OMEGA_0,
                     first_s_0=config.WIRE.WIRE_REAL_FIRST_S_0, hidden_s_0=config.WIRE.WIRE_REAL_HIDDEN_S_0
                     )
-        model_name = f'{model_name}_WIRE_{get_string(config_dict["WIRE"])}_'   
     
     else:
-        if config.MODEL.USE_TWO_HEADS:
-            model = MLPv2(input_size=input_size, output_size=output_size, hidden_size=config.MODEL.HIDDEN_CHANNELS,
-                    num_layers=config.MODEL.NUM_LAYERS, dropout=config.MODEL.DROPOUT)
-            model_name = f'{model_name}_MLPv2_'
+        if config.USE_TWO_HEADS:
+            model = MLPv2(input_size=input_size, output_size=output_size, hidden_size=config.HIDDEN_CHANNELS,
+                    num_layers=config.NUM_LAYERS, dropout=config.DROPOUT)
         else:
-            model = MLPv1(input_size=input_size, output_size=output_size, hidden_size=config.MODEL.HIDDEN_CHANNELS,
-                        num_layers=config.MODEL.NUM_LAYERS, dropout=config.MODEL.DROPOUT)
-            model_name = f'{model_name}_MLP2_'
+            model = MLPv1(input_size=input_size, output_size=output_size, hidden_size=config.HIDDEN_CHANNELS,
+                        num_layers=config.NUM_LAYERS, dropout=config.DROPOUT)
             
     model_registration = Siren(in_features=3, hidden_features=128, hidden_layers=2, out_features=3)
     model_registration = model_registration.to(device=device)
 
     model.to(device)
     
-    return model, model_registration, model_name
+    return model, model_registration
 
 
-def create_datasets(config):
+def create_datasets(config, data_path, contrast_1, contrast_2, dataset_name, verbose):
     dataset = MultiModalDataset(
-                    image_dir = config.SETTINGS.DIRECTORY,
-                    name = config.SETTINGS.PROJECT_NAME,
-                    subject_id=config.DATASET.SUBJECT_ID,
-                    contrast1_LR_str=config.DATASET.LR_CONTRAST1,
-                    contrast2_LR_str=config.DATASET.LR_CONTRAST2, 
-                    )
+                    image_dir = data_path,
+                    name = dataset_name,
+                    contrast1_LR_str=contrast_1,
+                    contrast2_LR_str=contrast_1, 
+                    verbose=verbose)
     
-    train_dataloader = DataLoader(dataset, batch_size=config.TRAINING.BATCH_SIZE, 
-                                 shuffle=config.TRAINING.SHUFFELING, 
-                                 num_workers=config.SETTINGS.NUM_WORKERS)
+    train_dataloader = DataLoader(dataset, batch_size=config.BATCH_SIZE, 
+                                 shuffle=config.SHUFFELING, 
+                                 num_workers=config.NUM_WORKERS)
     
     mgrid_contrast1 = dataset.get_coordinates(contrast=1, resolution='gt')
     mgrid_contrast2 = dataset.get_coordinates(contrast=2, resolution='gt')
@@ -80,18 +69,20 @@ def create_datasets(config):
     infer_dataloader = torch.utils.data.DataLoader(infer_data_contrast,
                                                batch_size=10000,
                                                shuffle=False,
-                                               num_workers=config.SETTINGS.NUM_WORKERS)
+                                               num_workers=config.NUM_WORKERS)
     
     infer_dataloader_contrast1 = torch.utils.data.DataLoader(infer_data_contrast1,
                                                batch_size=10000,
                                                shuffle=False,
-                                               num_workers=config.SETTINGS.NUM_WORKERS)
+                                               num_workers=config.NUM_WORKERS)
     infer_dataloader_contrast2 = torch.utils.data.DataLoader(infer_data_contrast2,
                                                batch_size=10000,
                                                shuffle=False,
-                                               num_workers=config.SETTINGS.NUM_WORKERS)
+                                               num_workers=config.NUM_WORKERS)
     
-    return dataset, train_dataloader, infer_dataloader, threshold, infer_dataloader_contrast1, infer_dataloader_contrast2
+    dataloaders = (train_dataloader, infer_dataloader, infer_dataloader_contrast1, infer_dataloader_contrast2)
+    
+    return dataset, dataloaders
 
 def compute_dataset_artifacts(dataset, device):
     # Dimensions of the two images

@@ -41,18 +41,15 @@ class MultiModalDataset(_BaseDataset):
         Image directory.
     name : str
         Dataset name.
-    subject_id : str
-        Subject ID.
     contrast1_LR_str : str
         Contrast 1 LR string.
     contrast2_LR_str : str
         Contrast 2 LR string.
     """
 
-    def __init__(self, image_dir, name, subject_id, contrast1_LR_str, contrast2_LR_str, verbose):
+    def __init__(self, image_dir, name, contrast1_LR_str, contrast2_LR_str, verbose=True):
         super(MultiModalDataset, self).__init__(image_dir)
         self.dataset_name = name
-        self.subject_id = subject_id
         self.contrast1_LR_str = contrast1_LR_str
         self.contrast2_LR_str = contrast2_LR_str
         self.contrast1_LR_mask_str = contrast1_LR_str.replace("LR", "mask_LR")
@@ -62,14 +59,10 @@ class MultiModalDataset(_BaseDataset):
         self.contrast1_GT_mask_str = "bodymask"
         self.contrast2_GT_mask_str = "bodymask"
         self.verbose = verbose
-        #Cross correlation/Mutual information between gt images and lr images -- Computed in the config of each project.
-        self.gt_similarity = 0
-        self.lr_similarity = 0
         
 
         self.dataset_name = (
             f'{self.dataset_name}_'
-            f'{self.subject_id}_'
             f'{self.contrast1_LR_str}_{self.contrast1_GT_str}_'
             f'{self.contrast2_LR_str}_{self.contrast2_GT_str}_'
             f'{self.contrast1_LR_mask_str}_{self.contrast2_LR_mask_str}_'
@@ -80,9 +73,6 @@ class MultiModalDataset(_BaseDataset):
         files = sorted(list(Path(self.image_dir).rglob('*.nii.gz'))) 
         files = [str(x) for x in files]
 
-
-        # only keep NIFTIs that follow specific subject 
-        files = [k for k in files if self.subject_id in k]
 
         # flair3 and flair3d_LR or t1 and t1_LR
         gt_contrast1 = [x for x in files if self.contrast1_GT_str in x and self.contrast1_LR_str not in x and 'mask' not in x][0]

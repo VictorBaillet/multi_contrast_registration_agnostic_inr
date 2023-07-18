@@ -6,7 +6,7 @@ import os
 from utils.visualization.utils_visualization import show_slices_gt, show_slices_registration, show_jacobian_det, compute_metrics
 
 
-def generate_NIFTIs(dataset, model_intensities, epoch, wandb_epoch_dict, config):
+def generate_NIFTIs(dataset, model_intensities, epoch, wandb_epoch_dict, contrast_1_name, contrast_2_name):
     x_dim_c1, y_dim_c1, z_dim_c1 = dataset.get_dim(contrast=1, resolution='gt')
     x_dim_c2, y_dim_c2, z_dim_c2 = dataset.get_dim(contrast=2, resolution='gt')
     threshold = len(dataset.get_coordinates(contrast=1, resolution='gt'))
@@ -54,16 +54,16 @@ def generate_NIFTIs(dataset, model_intensities, epoch, wandb_epoch_dict, config)
     bslice_2 = gt_contrast1[:, :, int(z_dim_c1/2)]
 
     im = show_slices_gt([slice_0, slice_1, slice_2],[bslice_0, bslice_1, bslice_2], epoch)
-    image = wandb.Image(im, caption=f"{config.DATASET.LR_CONTRAST1} prediction vs gt.")
-    wandb_epoch_dict.update({f"{config.DATASET.LR_CONTRAST1}": image})
+    image = wandb.Image(im, caption=f"{contrast_1_name} prediction vs gt.")
+    wandb_epoch_dict.update({f"{contrast_1_name}": image})
 
     slice_0 = img_contrast2[int(x_dim_c2/2), :, :]
     slice_1 = img_contrast2[:, int(y_dim_c2/2), :]
     slice_2 = img_contrast2[:, :, int(z_dim_c2/2)]
 
     im = show_slices_gt([slice_0, slice_1, slice_2],[bslice_0, bslice_1, bslice_2], epoch)
-    image = wandb.Image(im, caption=f"{config.DATASET.LR_CONTRAST2} prediction vs {config.DATASET.LR_CONTRAST1} gt.")
-    wandb_epoch_dict.update({f"{config.DATASET.LR_CONTRAST2} prediction vs {config.DATASET.LR_CONTRAST1} gt": image})
+    image = wandb.Image(im, caption=f"{contrast_2_name} prediction vs {contrast_1_name} gt.")
+    wandb_epoch_dict.update({f"{contrast_2_name} prediction vs {contrast_1_name} gt": image})
 
     slice_0 = img_contrast2_interpolated[int(x_dim_c2/2), :, :]
     slice_1 = img_contrast2_interpolated[:, int(y_dim_c2/2), :]
@@ -86,22 +86,22 @@ def generate_NIFTIs(dataset, model_intensities, epoch, wandb_epoch_dict, config)
     registration_norm_slice_2 = model_registration_norm[:, :, int(z_dim_c2/2)]
 
     im = show_slices_gt([slice_0, slice_1, slice_2],[bslice_0, bslice_1, bslice_2], epoch)
-    image = wandb.Image(im, caption=f"{config.DATASET.LR_CONTRAST2} prediction (reversed registration) vs gt.")
-    wandb_epoch_dict.update({f"{config.DATASET.LR_CONTRAST2}": image})
+    image = wandb.Image(im, caption=f"{contrast_2_name} prediction (reversed registration) vs gt.")
+    wandb_epoch_dict.update({f"{contrast_2_name}": image})
         
     im_registration = show_slices_registration([registration_slice_0, registration_slice_1, registration_slice_2], epoch)
-    image = wandb.Image(im_registration, caption=f"{config.DATASET.LR_CONTRAST2} registration field")
-    wandb_epoch_dict.update({f"{config.DATASET.LR_CONTRAST2} registration field": image})
+    image = wandb.Image(im_registration, caption=f"{contrast_2_name} registration field")
+    wandb_epoch_dict.update({f"{contrast_2_name} registration field": image})
 
     im_registration_jac_det = show_jacobian_det([reg_jac_det_slice_0, reg_jac_det_slice_1, reg_jac_det_slice_2], epoch, f"Jacobian determinant map after {epoch}.")
     
-    image = wandb.Image(im_registration_jac_det, caption=f"{config.DATASET.LR_CONTRAST2} registration jacobian determinant map")
-    wandb_epoch_dict.update({f"{config.DATASET.LR_CONTRAST2} registration jacobian determinant map": image})
+    image = wandb.Image(im_registration_jac_det, caption=f"{contrast_2_name} registration jacobian determinant map")
+    wandb_epoch_dict.update({f"{contrast_2_name} registration jacobian determinant map": image})
         
     im_registration_norm = show_jacobian_det([registration_norm_slice_0, registration_norm_slice_1, registration_norm_slice_2], epoch, f"Norm of the registration function after {epoch}.")
     
-    image = wandb.Image(im_registration_norm, caption=f"{config.DATASET.LR_CONTRAST2} registration norm map")
-    wandb_epoch_dict.update({f"{config.DATASET.LR_CONTRAST2} registration norm map": image})
+    image = wandb.Image(im_registration_norm, caption=f"{contrast_2_name} registration norm map")
+    wandb_epoch_dict.update({f"{contrast_2_name} registration norm map": image})
         
         
     return pred_contrast1, pred_contrast2, gt_contrast1, gt_contrast2, wandb_epoch_dict

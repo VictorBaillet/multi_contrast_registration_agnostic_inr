@@ -2,6 +2,7 @@ import numpy as np
 import argparse
 import yaml
 import lpips
+import os 
 
 import torch
 import torch.nn as nn
@@ -28,11 +29,16 @@ def process_config(args):
     config_dict : dict
         Configuration dictionary.
     """
+    experiment_name = args.experiment_name
+    project_folder = os.path.join('models', experiment_name)
+    config_folder = os.path.join(project_folder, 'configs')
+    args.config = os.path.join(config_folder, args.config)
+    
     with open(args.config) as f:
         config_dict = yaml.load(f, Loader=yaml.FullLoader)
         
     if args.logging:
-        config_dict["SETTINGS"]["LOGGING"] = True
+        config_dict["WANDB"]["LOGGING"] = True
         
     
     
@@ -59,7 +65,7 @@ def create_input_mapper(config, device):
     input_mapper = input_mapping(B=B_gauss, factor=config.FOURIER.FF_FACTOR).to(device)
     return input_mapper
 
-def create_losses(config, config_dict, model_name, device):
+def create_losses(config, device):
     """
     Create the losses for the model.
 
@@ -67,8 +73,6 @@ def create_losses(config, config_dict, model_name, device):
     ----------
     config : object
         Configuration object.
-    config_dict : dict
-        Configuration dictionary.
     model_name : str
         Model name.
     device : str
@@ -88,8 +92,6 @@ def create_losses(config, config_dict, model_name, device):
         Model name.
     """
     lpips_loss = lpips.LPIPS(net='alex', verbose=False).to(device)
-
-    model_name = f'{model_name}_NUML_{config.MODEL.NUM_LAYERS}_N_{config.MODEL.HIDDEN_CHANNELS}_D_{config.MODEL.DROPOUT}_'     
     
     # Loss
     if config.TRAINING.SIMILARITY_LOSS == 'L1Loss':
@@ -99,23 +101,18 @@ def create_losses(config, config_dict, model_name, device):
     else:
         raise ValueError('Loss function not defined!')
 
-    model_name = f'{model_name}_{config.TRAINING.SIMILARITY_LOSS}__{config.TRAINING.LOSS_WEIGHT.MSE_C1}__{config.TRAINING.LOSS_WEIGHT.MSE_C2}_'     
-
     # custom losses in addition to normal loss
     mi_criterion, cc_criterion = None, None
     if config.TRAINING.USE_MI:
-        mi_criterion = MILossGaussian(num_bins=config.MI_CC.MI_NUM_BINS, sample_ratio=config.MI_CC.MI_SAMPLE_RATIO, gt_val=None)#config.MI_CC.GT_VAL)
-        model_name = f'{model_name}_{get_string(config_dict["MI_CC"])}_'     
+        mi_criterion = MILossGaussian(num_bins=config.NETWORK.MI_CC.MI_NUM_BINS, sample_ratio=config.NETWORK.MI_CC.MI_SAMPLE_RATIO, gt_val=None)#config.MI_CC.GT_VAL)
     
     if config.TRAINING.USE_CC:
         cc_criterion = NCC()
-        model_name = f'{model_name}_{get_string(config_dict["MI_CC"])}_'    
         
     if config.TRAINING.USE_NMI:
-        mi_criterion = NMI(intensity_range=(0,1), nbins=config.MI_CC.MI_NUM_BINS, sigma=config.MI_CC.NMI_SIGMA)
-        model_name = f'{model_name}_{get_string(config_dict["MI_CC"])}_'  
+        mi_criterion = NMI(intensity_range=(0,1), nbins=config.NETWORK.MI_CC.MI_NUM_BINS, sigma=config.NETWORK.MI_CC.NMI_SIGMA)
         
-    return lpips_loss, criterion, mi_criterion, cc_criterion, model_name
+    return lpips_loss, criterion, mi_criterion, cc_criterion
 
 def parse_args():
     """

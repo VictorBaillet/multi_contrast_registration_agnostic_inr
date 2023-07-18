@@ -27,9 +27,9 @@ def config_data(data, labels, mask, device, config, input_mapper):
         contrast1_mask, contrast2_mask = contrast1_mask.to(device=device), contrast2_mask.to(device=device)
     
     raw_data = data
-    if config.MODEL.USE_FF:
+    if config.NETWORK.USE_FF:
         data = input_mapper(data)
-    elif config.MODEL.USE_SIREN:
+    elif config.NETWORK.USE_SIREN:
         data = data*np.pi
         
     return raw_data, data, contrast1_labels, contrast2_labels, contrast1_mask, contrast2_mask
