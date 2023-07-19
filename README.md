@@ -1,7 +1,6 @@
 # Using Implicit Neural Representation for super-resolution and registration simultaneously
-<img src="https://github.com/VictorBaillet/multi_contrast_registration_agnostic_inr/assets/105466709/e4f2e117-3f6c-4e2a-b8db-27b62d67c246" width="800"> 
-
-![reg_ball](https://github.com/VictorBaillet/multi_contrast_registration_agnostic_inr/assets/105466709/99bbfaab-85b8-4ce8-9406-1f5ef8071b09)
+<img src="https://github.com/VictorBaillet/multi_contrast_registration_agnostic_inr/assets/105466709/e4f2e117-3f6c-4e2a-b8db-27b62d67c246" width="600"> 
+<img src="https://github.com/VictorBaillet/multi_contrast_registration_agnostic_inr/assets/105466709/99bbfaab-85b8-4ce8-9406-1f5ef8071b09" width="600"> 
 
 ## Installation
 
